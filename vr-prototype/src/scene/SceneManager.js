@@ -41,10 +41,13 @@ export class SceneManager {
     );
     this.camera.position.set(0, 1.6, 0);
 
-    // Rig de cámara (representación del cuerpo físico del usuario en el mundo)
+    // Rig de cámara (representación del cuerpo físico del usuario en VR)
     this.cameraRig = new THREE.Group();
-    this.cameraRig.add(this.camera);
     this.scene.add(this.cameraRig);
+
+    // En modo navegador / escritorio, la cámara vive directamente en la escena
+    // para que OrbitControls funcione en coordenadas de mundo nativas sin desfases.
+    this.scene.add(this.camera);
 
     // Añadir mandos Touch del Quest 3 al rig
     if (this.controllerManager) {
@@ -53,7 +56,7 @@ export class SceneManager {
 
     // Controles de navegador (modo 360° / escritorio)
     this.controls = new OrbitControls(this.camera, renderer.domElement);
-    this.controls.target.set(0, 1.4, -4);
+    this.controls.target.set(0, 1.2, -2.5);
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.08;
     this.controls.maxPolarAngle = Math.PI / 2 + 0.05; // No atravesar el suelo
@@ -85,7 +88,14 @@ export class SceneManager {
     this.raft.setPearlsStatus(0, this.pearlManager.getTotalCount());
 
     // Cinemática de inicio en la costa y traslado hacia la balsa
-    this.cinematicManager = new CoastCinematicManager(this.scene, this.cameraRig, this.raft, this.audioManager);
+    this.cinematicManager = new CoastCinematicManager(
+      this.scene,
+      this.cameraRig,
+      this.raft,
+      this.audioManager,
+      this.camera,
+      this.controls
+    );
 
     // Métricas de sesión
     this.sessionStartTime = performance.now();
@@ -99,15 +109,26 @@ export class SceneManager {
   // ─── Gestión de Sesión WebXR ────────────────────────────────────────────────
   onSessionStart() {
     this.controls.enabled = false;
+    // En WebXR inmersivo, la cámara se ancla al rig para que el visor 6DOF controle la cabeza
+    this.cameraRig.add(this.camera);
     this.camera.position.set(0, 0, 0);
     this.camera.rotation.set(0, 0, 0);
     this.audioManager.init();
   }
 
   onSessionEnd() {
+    // Al salir de VR, devolver la cámara a la escena
+    this.scene.add(this.camera);
     this.controls.enabled = true;
-    this.camera.position.set(0, 1.6, 0);
-    this.controls.target.set(0, 1.4, -4);
+    if (this.cinematicManager && this.cinematicManager.isBoarded()) {
+      const raftPos = this.raft.group.position;
+      const forward = new THREE.Vector3(0, 0, -1).applyEuler(this.raft.group.rotation);
+      this.camera.position.copy(raftPos).addScaledVector(forward, -1.6).add(new THREE.Vector3(0, 1.45, 0));
+      this.controls.target.copy(raftPos).addScaledVector(forward, 6.0).add(new THREE.Vector3(0, 0.8, 0));
+    } else {
+      this.camera.position.set(0, 1.8, 9.5);
+      this.controls.target.set(0, 1.2, -2.5);
+    }
     this.controls.update();
   }
 
@@ -166,11 +187,9 @@ export class SceneManager {
 
     // Fallback con teclado en modo navegador / escritorio
     if (!isPresenting) {
-      this.controls.update();
-
       if (this.keys.w || this.keys.space) {
-        effectivePower = Math.max(effectivePower, 0.85);
-        effectiveRpm = Math.max(effectiveRpm, 65);
+        effectivePower = Math.max(effectivePower, 0.9);
+        effectiveRpm = Math.max(effectiveRpm, 70);
       }
       if (this.keys.a) steerInput -= 1.0;
       if (this.keys.d) steerInput += 1.0;
@@ -194,6 +213,24 @@ export class SceneManager {
 
     // 5. Actualizar la balsa
     this.raft.update(delta, effectivePower, effectiveRpm, headDir, steerInput);
+
+    // 6. En modo navegador/escritorio, acompañar a la balsa suavemente
+    if (!isPresenting) {
+      if (this.cinematicManager.isBoarded()) {
+        const raftPos = this.raft.group.position;
+        const forward = new THREE.Vector3(0, 0, -1).applyEuler(this.raft.group.rotation);
+
+        // Mirar hacia la proa y el océano
+        const lookTarget = raftPos.clone().addScaledVector(forward, 6.0).add(new THREE.Vector3(0, 0.8, 0));
+
+        // Ubicar la cámara cómodamente en el puesto de navegación sobre la balsa
+        const targetCamPos = raftPos.clone().addScaledVector(forward, -1.6).add(new THREE.Vector3(0, 1.45, 0));
+
+        this.camera.position.lerp(targetCamPos, 0.18);
+        this.controls.target.lerp(lookTarget, 0.18);
+      }
+      this.controls.update();
+    }
 
     // 6. Actualizar entorno costero (océano dinámico y shaders)
     this.environment.update(delta);

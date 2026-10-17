@@ -20,21 +20,36 @@ export class CoastCinematicManager {
    * @param {THREE.Group} cameraRig
    * @param {import('../entities/Raft.js').Raft} raft
    * @param {import('../audio/SpatialAudioManager.js').SpatialAudioManager} audioManager
+   * @param {THREE.Camera} camera
+   * @param {import('three/addons/controls/OrbitControls.js').OrbitControls} controls
    */
-  constructor(scene, cameraRig, raft, audioManager) {
+  constructor(scene, cameraRig, raft, audioManager, camera = null, controls = null) {
     this.scene = scene;
     this.cameraRig = cameraRig;
     this.raft = raft;
     this.audioManager = audioManager;
+    this.camera = camera;
+    this.controls = controls;
 
     this.state = CinematicState.ON_SHORE;
     this.timer = 0;
-    this.transitionDuration = 3.6; // segundos de viaje suave
+    this.transitionDuration = 2.2; // Traslado ágil y suave (2.2s)
 
     // Posición inicial en la arena
-    this.shorePosition = new THREE.Vector3(0, 0, 9.5);
-    this.cameraRig.position.copy(this.shorePosition);
-    this.cameraRig.rotation.set(0, 0, 0); // mirando hacia el mar (z negativo)
+    this.shorePosition = new THREE.Vector3(0, 1.8, 9.5);
+    this.shoreLook = new THREE.Vector3(0, 1.2, -2.5); // mirando hacia el mar y la balsa
+
+    if (this.camera) {
+      this.camera.position.copy(this.shorePosition);
+    }
+    if (this.controls) {
+      this.controls.target.copy(this.shoreLook);
+      this.controls.update();
+    }
+    if (this.cameraRig) {
+      this.cameraRig.position.set(0, 0, 9.5);
+      this.cameraRig.rotation.set(0, 0, 0);
+    }
 
     // Crear cartel de bienvenida en la orilla
     this._buildShoreBillboard();
@@ -46,7 +61,7 @@ export class CoastCinematicManager {
     canvas.height = 512;
     const ctx = canvas.getContext('2d');
 
-    ctx.fillStyle = 'rgba(7, 24, 42, 0.88)';
+    ctx.fillStyle = 'rgba(7, 24, 42, 0.9)';
     ctx.beginPath();
     ctx.roundRect(0, 0, 1024, 512, 32);
     ctx.fill();
@@ -58,7 +73,7 @@ export class CoastCinematicManager {
     ctx.stroke();
 
     ctx.fillStyle = '#00f0ff';
-    ctx.font = 'bold 42px system-ui, sans-serif';
+    ctx.font = 'bold 44px system-ui, sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('🏝️ COSTA DE EMBARQUE', 512, 75);
 
@@ -75,20 +90,20 @@ export class CoastCinematicManager {
 
     ctx.fillStyle = '#cbd5e1';
     ctx.font = '24px system-ui, sans-serif';
-    ctx.fillText('• La cinemática te trasladará automáticamente a la balsa.', 512, 230);
+    ctx.fillText('• La cinemática te traslada al asiento de la balsa.', 512, 230);
     ctx.fillText('• En el agua, pedalea para avanzar recogiendo las perlas.', 512, 275);
-    ctx.fillText('• Sigue la ruta hasta la boya con la baliza de luz.', 512, 320);
+    ctx.fillText('• Llega hasta la boya con la baliza de luz para completar la meta.', 512, 320);
 
     ctx.fillStyle = '#ffd700';
-    ctx.font = 'bold 30px system-ui, sans-serif';
-    ctx.fillText('⚡ Presiona los pedales o el gatillo para subir de inmediato', 512, 420);
+    ctx.font = 'bold 32px system-ui, sans-serif';
+    ctx.fillText('⚡ Presiona los pedales, gatillo o Espacio/W para embarcar', 512, 420);
 
     const texture = new THREE.CanvasTexture(canvas);
-    const geo = new THREE.PlaneGeometry(2.4, 1.2);
+    const geo = new THREE.PlaneGeometry(2.6, 1.3);
     const mat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, side: THREE.DoubleSide });
 
     this.billboard = new THREE.Mesh(geo, mat);
-    this.billboard.position.set(0, 1.8, 6.5);
+    this.billboard.position.set(0, 1.8, 6.0);
     this.scene.add(this.billboard);
   }
 
@@ -97,20 +112,22 @@ export class CoastCinematicManager {
     if (this.state !== CinematicState.ON_SHORE) return;
     this.state = CinematicState.TRANSITIONING;
     this.timer = 0;
-    this.startPos = this.cameraRig.position.clone();
+    this.startRigPos = this.cameraRig ? this.cameraRig.position.clone() : new THREE.Vector3(0, 0, 9.5);
+    this.startCamPos = this.camera ? this.camera.position.clone() : this.shorePosition.clone();
+    this.startTargetPos = this.controls ? this.controls.target.clone() : this.shoreLook.clone();
   }
 
   /**
    * Actualiza la cinemática cada frame
    * @param {number} delta
-   * @param {boolean} userWantsStart - Si el usuario presionó pedal o gatillo
+   * @param {boolean} userWantsStart - Si el usuario presionó pedal o tecla
    */
   update(delta, userWantsStart = false) {
     if (this.state === CinematicState.ON_SHORE) {
       this.timer += delta;
 
-      // Iniciar automáticamente tras 3.5 segundos o si el usuario presiona pedal/gatillo
-      if (this.timer > 3.5 || userWantsStart) {
+      // Iniciar de inmediato al pedalear/pulsar tecla o tras 2.5s
+      if (this.timer > 2.5 || userWantsStart) {
         this.startTransition();
       }
       return;
@@ -118,26 +135,46 @@ export class CoastCinematicManager {
 
     if (this.state === CinematicState.TRANSITIONING) {
       this.timer += delta;
+
+      // Si el usuario vuelve a presionar para navegar mientras se traslada, completar de inmediato
+      if (userWantsStart && this.timer > 0.4) {
+        this.timer = this.transitionDuration;
+      }
+
       const progress = Math.min(1.0, this.timer / this.transitionDuration);
 
-      // Curva de interpolación Cúbica Suave (Smoothstep / Ease-In-Out)
+      // Curva de interpolación Cúbica Suave (Smoothstep)
       const t = progress * progress * (3.0 - 2.0 * progress);
 
       // Destino: Asiento de la balsa
-      const targetPos = this.raft.group.position.clone();
-      targetPos.y += 0.85;
-      targetPos.z += 0.4;
+      const forward = new THREE.Vector3(0, 0, -1).applyEuler(this.raft.group.rotation);
+      const raftPos = this.raft.group.position;
+      const seatPos = raftPos.clone().add(new THREE.Vector3(0, 0.85, 0)).add(new THREE.Vector3(0, 0, 0.4).applyEuler(this.raft.group.rotation));
 
-      // Trayectoria arqueada suave
-      this.cameraRig.position.lerpVectors(this.startPos, targetPos, t);
-      // Suave elevación intermedia para sobrevolar las olas
-      this.cameraRig.position.y += Math.sin(progress * Math.PI) * 0.45;
+      const targetCamPos = raftPos.clone().addScaledVector(forward, -1.6).add(new THREE.Vector3(0, 1.45, 0));
+      const targetLook = raftPos.clone().addScaledVector(forward, 6.0).add(new THREE.Vector3(0, 0.8, 0));
+
+      // Actualizar rig VR
+      if (this.cameraRig) {
+        this.cameraRig.position.lerpVectors(this.startRigPos, seatPos, t);
+        this.cameraRig.position.y += Math.sin(progress * Math.PI) * 0.35;
+      }
+
+      // Actualizar cámara en modo escritorio
+      if (this.camera) {
+        this.camera.position.lerpVectors(this.startCamPos, targetCamPos, t);
+        this.camera.position.y += Math.sin(progress * Math.PI) * 0.35;
+      }
+      if (this.controls) {
+        this.controls.target.lerpVectors(this.startTargetPos, targetLook, t);
+        this.controls.update();
+      }
 
       // Al completar el traslado:
       if (progress >= 1.0) {
         this.state = CinematicState.BOARDED;
         this.raft.isBoarded = true;
-        this.raft.setStatusMessage('¡A bordo! Empieza a pedalear hacia la boya');
+        this.raft.setStatusMessage('¡A bordo! Pedalea para navegar hacia la boya');
 
         // Ocultar cartel de la orilla
         if (this.billboard) {

@@ -24,21 +24,23 @@ export class Raft {
     this.environment = environment;
     this.cameraRig = cameraRig;
 
-    // Posición inicial en la orilla del agua (x=0, z=-1.5)
-    this.position = new THREE.Vector3(0, 0, -2.5);
-    this.rotation = new THREE.Euler(0, Math.PI, 0); // mirando hacia el mar (z negativo)
+    // Posición inicial en la orilla del agua (x=0, z=-3.0) orientada hacia el mar (-z)
+    this.position = new THREE.Vector3(0, 0, -3.0);
+    this.rotation = new THREE.Euler(0, 0, 0); // Orientada hacia el mar abierto (z negativo)
     this.velocity = 0; // m/s
-    this.maxSpeed = 5.5; // m/s (~20 km/h al pedalear rápido)
-    this.dragCoefficient = 0.92; // fricción hidrodinámica
+    this.maxSpeed = 6.0; // m/s (~21 km/h)
+    this.dragCoefficient = 0.94; // fricción hidrodinámica suave
 
     this.cadence = 0; // RPM actuales
     this.pearlsCount = 0;
     this.targetPearls = 0;
-    this.distanceToBuoy = 150;
+    this.distanceToBuoy = 145;
     this.deviceStatus = 'Conectado (Ready)';
-    this.statusMessage = '¡Pedalea para zarpar hacia la boya!';
+    this.statusMessage = '¡Pedalea para navegar hacia la boya!';
 
     this.isBoarded = false; // Se activa cuando la cinemática traslada al jugador
+    this._dashTimer = 0;
+    this._dashForceUpdate = true;
 
     // Crear grupo visual principal
     this.group = new THREE.Group();
@@ -147,8 +149,7 @@ export class Raft {
 
     this.dashboardMesh = new THREE.Mesh(dashGeo, dashMat);
     this.dashboardMesh.position.set(0, 1.15, -1.5); // montado en la proa
-    this.dashboardMesh.rotation.x = -0.22; // inclinado hacia los ojos del usuario
-    this.dashboardMesh.rotation.y = Math.PI; // Orientación legible hacia el usuario
+    this.dashboardMesh.rotation.set(-0.22, 0, 0); // orientado directamente hacia el usuario en el asiento
     this.group.add(this.dashboardMesh);
 
     this._renderDashboardCanvas();
@@ -173,13 +174,13 @@ export class Raft {
 
     // Título de navegación
     ctx.fillStyle = '#00f0ff';
-    ctx.font = 'bold 38px system-ui, sans-serif';
+    ctx.font = 'bold 32px system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('🧭 BALSA DE TRAVESÍA COSTERA', 50, 68);
+    ctx.fillText('🧭 BALSA COSTERA', 50, 68);
 
     // Estado del dispositivo
     ctx.textAlign = 'right';
-    ctx.font = 'bold 24px system-ui, sans-serif';
+    ctx.font = 'bold 20px system-ui, sans-serif';
     ctx.fillStyle = '#10b981';
     ctx.fillText(`⚡ DISPOSITIVO: ${this.deviceStatus}`, 974, 66);
 
@@ -257,51 +258,49 @@ export class Raft {
 
     if (this.isBoarded) {
       // 1. Aceleración por pedaleo
-      const propulsiveForce = pedalPower * 3.8; // m/s^2
+      const propulsiveForce = pedalPower * 5.2; // m/s^2 con excelente respuesta
       this.velocity += propulsiveForce * delta;
 
-      // 2. Fricción con el agua (resistencia hidrodinámica cuadrática suave)
+      // 2. Fricción con el agua (resistencia hidrodinámica)
       this.velocity *= Math.pow(this.dragCoefficient, delta * 2.0);
       this.velocity = Math.max(0, Math.min(this.maxSpeed, this.velocity));
 
       // 3. Dirección y Viraje:
-      // - Si hay input de joystick/teclas: giro manual
-      // - Si no: el timón sigue sutilmente hacia donde mira el usuario
       if (Math.abs(steerInput) > 0.05) {
-        this.group.rotation.y -= steerInput * 1.2 * delta;
+        this.group.rotation.y -= steerInput * 1.5 * delta;
       } else if (headDirection && this.velocity > 0.2) {
+        // En VR: auto-timón hacia donde mira la cabeza
         const targetAngle = Math.atan2(-headDirection.x, -headDirection.z);
-        // Suave interpolación hacia la mirada
         let angleDiff = targetAngle - this.group.rotation.y;
         while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
         while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-        this.group.rotation.y += angleDiff * 0.45 * delta;
+        this.group.rotation.y += angleDiff * 0.4 * delta;
       }
 
-      // 4. Desplazamiento en la dirección en que apunta la balsa
+      // 4. Desplazamiento en la dirección de la proa (-Z local hacia la boya en mar abierto)
       const forward = new THREE.Vector3(0, 0, -1).applyEuler(this.group.rotation);
       this.group.position.addScaledVector(forward, this.velocity * delta);
 
-      // Limitar para que no suba a la arena seca detrás de la orilla
-      if (this.group.position.z > -1.0) {
-        this.group.position.z = -1.0;
-        this.velocity = 0;
+      // Limitar para que no suba a la arena seca detrás de la orilla (z > -2.0)
+      if (this.group.position.z > -2.0) {
+        this.group.position.z = -2.0;
+        if (this.velocity < 0) this.velocity = 0;
       }
 
       // 5. Girar las ruedas de palas según la velocidad
       if (this.paddleGroup) {
-        this.paddleGroup.rotation.x -= (this.velocity * 2.8 + cadenceRpm * 0.06) * delta;
+        this.paddleGroup.rotation.x -= (this.velocity * 3.5 + cadenceRpm * 0.08) * delta;
       }
 
       // 6. Anclar el cameraRig al asiento de la balsa
       this.position.copy(this.group.position);
       this.rotation.copy(this.group.rotation);
 
-      // El usuario se sienta a altura 0.9m sobre la base de la balsa
+      // El usuario se sienta a altura 0.85m sobre la base de la balsa
       this.cameraRig.position.copy(this.group.position);
       this.cameraRig.position.y += 0.85;
       this.cameraRig.position.add(new THREE.Vector3(0, 0, 0.4).applyEuler(this.group.rotation));
-      this.cameraRig.rotation.y = this.group.rotation.y + Math.PI; // Orientación adecuada en VR
+      this.cameraRig.rotation.y = this.group.rotation.y; // Mirando hacia la proa y el mar
     }
 
     // ─── Flotabilidad y Oleaje en Tiempo Real ───────────────────────────────
@@ -312,13 +311,19 @@ export class Raft {
     this.group.rotation.x = pitch * 0.6;
     this.group.rotation.z = roll * 0.6;
 
-    // Actualizar pantalla del dashboard periódicamente
-    this._renderDashboardCanvas();
+    // Actualizar pantalla del dashboard periódicamente (7 Hz para evitar saturar el bus GPU)
+    this._dashTimer += delta;
+    if (this._dashTimer >= 0.14 || this._dashForceUpdate) {
+      this._dashTimer = 0;
+      this._dashForceUpdate = false;
+      this._renderDashboardCanvas();
+    }
   }
 
   setPearlsStatus(collected, total) {
     this.pearlsCount = collected;
     this.targetPearls = total;
+    this._dashForceUpdate = true;
   }
 
   setDistanceToBuoy(dist) {
@@ -327,5 +332,6 @@ export class Raft {
 
   setStatusMessage(msg) {
     this.statusMessage = msg;
+    this._dashForceUpdate = true;
   }
 }

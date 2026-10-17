@@ -50,7 +50,6 @@ export class PearlManager {
       metalness: 0.1,
       clearcoat: 1.0,
       clearcoatRoughness: 0.1,
-      transmission: 0.2,
       ior: 1.5,
     });
 

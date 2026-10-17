@@ -57,7 +57,8 @@ export class CoastEnvironment {
   // ─── Atmósfera, Sol e Iluminación ──────────────────────────────────────────
   _buildAtmosphereAndLighting() {
     // Niebla marina atmosférica
-    this.scene.fog = new THREE.FogExp2(0xcfe4f5, 0.0035);
+    // Niebla marina atmosférica en tono azul cielo costero
+    this.scene.fog = new THREE.FogExp2(0xa3cde8, 0.0028);
 
     // Domo de cielo dinámico
     this.sky = new Sky();
@@ -65,22 +66,22 @@ export class CoastEnvironment {
     this.scene.add(this.sky);
 
     const skyUniforms = this.sky.material.uniforms;
-    skyUniforms['turbidity'].value = 8;
-    skyUniforms['rayleigh'].value = 2.0;
+    skyUniforms['turbidity'].value = 6;
+    skyUniforms['rayleigh'].value = 1.4;
     skyUniforms['mieCoefficient'].value = 0.005;
     skyUniforms['mieDirectionalG'].value = 0.8;
 
-    // Vector solar (atardecer tropical brillante a ~22° de elevación)
+    // Vector solar (sol tropical de tarde a 28° de elevación y 135° de azimut)
     this.sunPosition = new THREE.Vector3();
-    const elevation = 22; // grados sobre el horizonte
-    const azimuth = 195;  // orientación hacia el mar
+    const elevation = 28; // grados sobre el horizonte
+    const azimuth = 135;  // orientación lateral-frontal agradable
     const phi = THREE.MathUtils.degToRad(90 - elevation);
     const theta = THREE.MathUtils.degToRad(azimuth);
     this.sunPosition.setFromSphericalCoords(1, phi, theta);
     skyUniforms['sunPosition'].value.copy(this.sunPosition);
 
-    // Luz solar directa con proyección de sombras
-    this.sunLight = new THREE.DirectionalLight(0xfffae8, 2.2);
+    // Luz solar directa con intensidad balanceada (evita quemar la escena en blanco)
+    this.sunLight = new THREE.DirectionalLight(0xfffae0, 1.35);
     this.sunLight.position.copy(this.sunPosition).multiplyScalar(150);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 1024;
@@ -96,26 +97,44 @@ export class CoastEnvironment {
     this.scene.add(this.sunLight);
 
     // Luz ambiental hemisférica (cielo azul / suelo arena cálida)
-    const hemiLight = new THREE.HemisphereLight(0x9bd8ff, 0xdfbe8c, 1.1);
+    const hemiLight = new THREE.HemisphereLight(0x76bfe8, 0x4a3a28, 0.8);
     this.scene.add(hemiLight);
   }
 
-  // ─── Océano con Textura de Normales Procedural ─────────────────────────────
+  // ─── Océano con Textura de Normales Procedural y Fondo Marino ──────────────
   _buildOcean() {
-    // Generar mapa de normales procedural sin dependencias de imágenes externas
+    // 1. Fondo abisal oscuro para dar profundidad y evitar que el agua sea transparente/clara
+    const seabedGeo = new THREE.PlaneGeometry(850, 850);
+    const seabedMat = new THREE.MeshBasicMaterial({ color: 0x000e1c });
+    const seabed = new THREE.Mesh(seabedGeo, seabedMat);
+    seabed.rotation.x = -Math.PI / 2;
+    seabed.position.y = -6.0;
+    this.scene.add(seabed);
+
+    // 2. Generar mapa de normales procedural suavizado
     const normalMap = this._createProceduralWaterNormalMap();
 
     const waterGeo = new THREE.PlaneGeometry(800, 800);
     this.water = new Water(waterGeo, {
-      textureWidth: 512,
-      textureHeight: 512,
+      textureWidth: 256,
+      textureHeight: 256,
       waterNormals: normalMap,
       sunDirection: this.sunPosition.clone().normalize(),
-      sunColor: 0xfffae8,
-      waterColor: 0x007899,
-      distortionScale: 3.5,
+      sunColor: 0xffd990,      // Reflejo cálido dorado (no blanco quemado)
+      waterColor: 0x001d36,    // Azul marino oceánico profundo y rico
+      distortionScale: 2.2,    // Oleaje suave y orgánico
       fog: true,
     });
+
+    // Optimización de rendimiento: renderizar reflejo espejo cada 2 frames
+    // Duplica la tasa de cuadros y reduce la sobrecarga de dibujado en GPU
+    let mirrorFrameCounter = 0;
+    const baseOnBeforeRender = this.water.onBeforeRender;
+    this.water.onBeforeRender = function(renderer, scene, camera) {
+      mirrorFrameCounter++;
+      if (mirrorFrameCounter % 2 !== 0) return;
+      baseOnBeforeRender.call(this, renderer, scene, camera);
+    };
 
     this.water.rotation.x = -Math.PI / 2;
     this.water.position.y = this.waterLevel;
@@ -133,11 +152,14 @@ export class CoastEnvironment {
 
     for (let y = 0; y < size; y++) {
       for (let x = 0; x < size; x++) {
-        const u = (x / size) * Math.PI * 4;
-        const v = (y / size) * Math.PI * 4;
-        const nx = Math.sin(u) * 0.5 + Math.cos(v * 2) * 0.25;
-        const ny = Math.cos(v) * 0.5 + Math.sin(u * 2) * 0.25;
-        const nz = 1.0;
+        const u1 = (x / size) * Math.PI * 4;
+        const v1 = (y / size) * Math.PI * 4;
+        const u2 = (x / size) * Math.PI * 8;
+        const v2 = (y / size) * Math.PI * 8;
+
+        const nx = Math.sin(u1) * 0.35 + Math.sin(u2 + v1) * 0.15;
+        const ny = Math.cos(v1) * 0.35 + Math.cos(v2 - u1) * 0.15;
+        const nz = 0.92;
 
         const len = Math.hypot(nx, ny, nz);
         const idx = (y * size + x) * 4;

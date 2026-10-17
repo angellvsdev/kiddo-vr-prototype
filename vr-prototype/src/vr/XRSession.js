@@ -138,20 +138,28 @@ export class XRSessionManager {
 
     try {
       const sessionOptions = {
+        requiredFeatures: ['local-floor'],
         optionalFeatures: [
-          'local-floor',
           'bounded-floor',
           'hand-tracking',
           'layers',
         ],
       };
 
-      console.log('[WebXR] Solicitando sesión immersive-vr...');
-      const session = await navigator.xr.requestSession('immersive-vr', sessionOptions);
+      console.log('[WebXR] Solicitando sesión immersive-vr (local-floor)...');
+      let session;
+      try {
+        session = await navigator.xr.requestSession('immersive-vr', sessionOptions);
+      } catch (reqErr) {
+        console.warn('[WebXR] Fallback a optionalFeatures:', reqErr);
+        session = await navigator.xr.requestSession('immersive-vr', {
+          optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking', 'layers'],
+        });
+      }
       this.session = session;
 
       await this.renderer.xr.setSession(session);
-      console.log('[WebXR] ¡Sesión inmersiva iniciada!');
+      console.log('[WebXR] ¡Sesión inmersiva iniciada con éxito!');
     } catch (err) {
       console.error('[WebXR] Error al iniciar sesión inmersiva:', err);
       const status = document.getElementById('status-bar');

@@ -241,12 +241,19 @@ export class LlanoSceneManager {
     this.horse.isHalted = true;
     this.audioManager.playVictoryFanfare();
     this.controllerManager?.triggerHaptic?.(1.0, 450);
-    this.dashboard.set({ message: `🏆 ¡LLEGASTE AL HATO! ${this.orbManager.score} puntos` });
+    this.dashboard.set({ message: `🏆 ¡LLEGASTE AL HATO! Regresando al Lobby...` });
     this.deviceBridge.onGoalReached({
       totalTimeSec: Math.round(this.totalTime),
       totalPearls: this.orbManager.collectedCount,
       distanceMeters: LLANO_ROUTE_LENGTH,
     });
+
+    // Regresar al Lobby tras 4.5 segundos
+    setTimeout(() => {
+      if (this.onLevelComplete) {
+        this.onLevelComplete('llano');
+      }
+    }, 4500);
   }
 
   // ─── Telemetría para el panel de depuración ─────────────────────────────────
@@ -263,6 +270,20 @@ export class LlanoSceneManager {
   dispose() {
     this._disposers.forEach((fn) => fn());
     this._disposers.length = 0;
+
+    // Desacoplar objetos persistentes (cámara, rig, mandos) antes de limpiar la escena
+    if (this.controllerManager) {
+      this.controllerManager.getGrips().forEach((grip) => {
+        if (grip.parent) grip.parent.remove(grip);
+      });
+    }
+    if (this.camera && this.camera.parent) {
+      this.camera.parent.remove(this.camera);
+    }
+    if (this.cameraRig && this.cameraRig.parent) {
+      this.cameraRig.parent.remove(this.cameraRig);
+    }
+
     this.scene.traverse((o) => {
       o.geometry?.dispose?.();
       const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];

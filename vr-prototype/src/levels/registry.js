@@ -15,6 +15,11 @@
  * Mientras no exista el lobby, el nivel se elige con el parámetro de URL ?level=<id>.
  */
 export const LEVELS = {
+  lobby: {
+    id: 'lobby',
+    title: 'Lobby Principal',
+    load: () => import('../scene/LobbySceneManager.js').then((m) => m.LobbySceneManager),
+  },
   coast: {
     id: 'coast',
     title: 'Travesía Costera',
@@ -25,9 +30,14 @@ export const LEVELS = {
     title: 'Atardecer Llanero',
     load: () => import('../scene/LlanoSceneManager.js').then((m) => m.LlanoSceneManager),
   },
+  cyber: {
+    id: 'cyber',
+    title: 'Cyber-Arena Cósmica',
+    load: () => import('../scene/CyberSceneManager.js').then((m) => m.CyberSceneManager),
+  },
 };
 
-export const DEFAULT_LEVEL_ID = 'coast';
+export const DEFAULT_LEVEL_ID = 'lobby';
 
 /** Lee el nivel pedido en la URL (?level=llano); cae al nivel por defecto si no existe */
 export function resolveLevelId(search = window.location.search) {

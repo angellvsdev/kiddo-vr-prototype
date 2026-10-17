@@ -74,8 +74,15 @@ export class SceneManager {
 
     // Teclas para modo escritorio (WASD / Flechas / Espacio)
     this.keys = { w: false, a: false, s: false, d: false, space: false };
-    window.addEventListener('keydown', (e) => this._onKey(e, true));
-    window.addEventListener('keyup', (e) => this._onKey(e, false));
+    this._disposers = [];
+    const onKeyDown = (e) => this._onKey(e, true);
+    const onKeyUp = (e) => this._onKey(e, false);
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    this._disposers.push(() => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+    });
 
     // ─── 2. Servicios Base ────────────────────────────────────────────────────
     this.audioManager = new SpatialAudioManager();
@@ -91,6 +98,8 @@ export class SceneManager {
 
     // Boya marina de llegada a 145m mar adentro
     this.buoy = new Buoy(this.scene, this.environment, new THREE.Vector3(0, 0, -145));
+    this._goalDone = false;
+    this.onLevelComplete = null;
 
     // Sendero de perlas en el mar
     this.pearlManager = new PearlManager(this.scene, this.environment, this.deviceBridge, this.audioManager);
@@ -112,7 +121,9 @@ export class SceneManager {
     this._cadenceSyncTimer = 0;
 
     // Inicializar audio al primer clic o interacción
-    window.addEventListener('pointerdown', () => this.audioManager.init(), { once: true });
+    const onInitAudio = () => this.audioManager.init();
+    window.addEventListener('pointerdown', onInitAudio, { once: true });
+    this._disposers.push(() => window.removeEventListener('pointerdown', onInitAudio));
   }
 
   // ─── Gestión de Sesión WebXR ────────────────────────────────────────────────
@@ -262,7 +273,8 @@ export class SceneManager {
     this.raft.setDistanceToBuoy(distToBuoy);
 
     const goalReached = this.buoy.update(delta, this.raft.group.position);
-    if (goalReached) {
+    if (goalReached && !this._goalDone) {
+      this._goalDone = true;
       this.audioManager.playVictoryFanfare();
       if (this.controllerManager && this.controllerManager.triggerHaptic) {
         this.controllerManager.triggerHaptic(1.0, 450);
@@ -273,19 +285,74 @@ export class SceneManager {
         totalPearls: this.pearlManager.collectedCount,
         distanceMeters: Math.round(145),
       });
+
+      // Cartel 3D flotante de victoria
+      this._showVictoryBanner();
+
+      // Regresar al Lobby tras 4.5 segundos
+      setTimeout(() => {
+        if (this.onLevelComplete) {
+          this.onLevelComplete('coast');
+        }
+      }, 4500);
     }
 
     // 9. Reportar periódicamente cadencia al dispositivo externo (cada 1s)
     this._cadenceSyncTimer += delta;
     if (this._cadenceSyncTimer >= 1.0) {
       this._cadenceSyncTimer = 0;
-      if (effectivePower > 0.05) {
+      if (effectivePower > 0.05 && !this._goalDone) {
         this.deviceBridge.onCadenceUpdate({
           rpm: Math.round(effectiveRpm),
           speedKmh: Number((this.raft.velocity * 3.6).toFixed(1)),
         });
       }
     }
+  }
+
+  _showVictoryBanner() {
+    const canvas = document.createElement('canvas');
+    canvas.width = 1024;
+    canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = 'rgba(7, 24, 42, 0.95)';
+    ctx.roundRect(0, 0, 1024, 512, 32);
+    ctx.fill();
+
+    ctx.strokeStyle = '#00f0ff';
+    ctx.lineWidth = 6;
+    ctx.roundRect(6, 6, 1012, 500, 26);
+    ctx.stroke();
+
+    ctx.fillStyle = '#00f0ff';
+    ctx.font = 'bold 48px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('🏆 ¡TRAVESÍA COMPLETADA!', 512, 90);
+
+    ctx.fillStyle = '#f8fafc';
+    ctx.font = '30px system-ui, sans-serif';
+    ctx.fillText(`Has llegado con éxito a la boya marina.`, 512, 170);
+
+    ctx.fillStyle = '#ffd700';
+    ctx.font = '28px system-ui, sans-serif';
+    ctx.fillText(`🦪 Perlas recogidas: ${this.pearlManager.collectedCount} / ${this.pearlManager.getTotalCount()}`, 512, 240);
+    ctx.fillText(`⏱️ Tiempo total: ${Math.round(this.totalTime)} segundos`, 512, 290);
+
+    ctx.fillStyle = '#38bdf8';
+    ctx.font = 'bold 30px system-ui, sans-serif';
+    ctx.fillText('🏛️ Regresando al Lobby principal...', 512, 420);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    const planeGeo = new THREE.PlaneGeometry(2.6, 1.3);
+    const planeMat = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: false });
+    const banner = new THREE.Mesh(planeGeo, planeMat);
+    banner.renderOrder = 8000;
+
+    const forward = new THREE.Vector3(0, 0, -1).applyEuler(this.raft.group.rotation);
+    banner.position.copy(this.raft.group.position).addScaledVector(forward, 2.5).add(new THREE.Vector3(0, 1.4, 0));
+    banner.quaternion.copy(this.raft.group.quaternion);
+    this.scene.add(banner);
   }
 
   // ─── Telemetría para el panel de depuración ─────────────────────────────────
@@ -296,5 +363,34 @@ export class SceneManager {
       pearlsCount: this.pearlManager.collectedCount,
       targetPearls: this.pearlManager.getTotalCount(),
     };
+  }
+
+  // ─── Liberación de recursos para conmutar niveles ───────────────────────────
+  dispose() {
+    this._disposers.forEach((fn) => fn());
+    this._disposers.length = 0;
+    this.controls?.dispose();
+
+    // Desacoplar objetos persistentes (cámara, rig, mandos) antes de limpiar la escena
+    if (this.controllerManager) {
+      this.controllerManager.getGrips().forEach((grip) => {
+        if (grip.parent) grip.parent.remove(grip);
+      });
+    }
+    if (this.camera && this.camera.parent) {
+      this.camera.parent.remove(this.camera);
+    }
+    if (this.cameraRig && this.cameraRig.parent) {
+      this.cameraRig.parent.remove(this.cameraRig);
+    }
+
+    this.scene.traverse((o) => {
+      o.geometry?.dispose?.();
+      const mats = Array.isArray(o.material) ? o.material : o.material ? [o.material] : [];
+      mats.forEach((m) => {
+        m.map?.dispose?.();
+        m.dispose?.();
+      });
+    });
   }
 }

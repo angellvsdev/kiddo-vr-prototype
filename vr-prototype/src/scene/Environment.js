@@ -22,32 +22,26 @@ export class Environment {
 
   // ── Iluminación 360° envolvente ───────────────────────────────────────────
   _buildLighting() {
-    // Luz ambiental cósmica
-    const ambientLight = new THREE.AmbientLight(0x2d1b69, 0.9);
+    // Luz ambiental cósmica diurna reforzada
+    const ambientLight = new THREE.AmbientLight(0x352b75, 1.4);
     this.scene.add(ambientLight);
 
-    // Sol cenital con sombras
-    const sunLight = new THREE.DirectionalLight(0xffffff, 1.8);
+    // Sol cenital cósmico
+    const sunLight = new THREE.DirectionalLight(0xffffff, 1.6);
     sunLight.position.set(10, 20, 10);
-    sunLight.castShadow = true;
-    sunLight.shadow.mapSize.width = 2048;
-    sunLight.shadow.mapSize.height = 2048;
-    sunLight.shadow.camera.near = 0.5;
-    sunLight.shadow.camera.far = 60;
-    sunLight.shadow.bias = -0.001;
     this.scene.add(sunLight);
 
     // Luces puntuales de 4 cuadrantes (Norte, Sur, Este, Oeste)
     const cardinalColors = [0x00f0ff, 0xff007f, 0x6c63ff, 0x00ff88];
     const cardinalPositions = [
-      [0, 3, -12],   // Norte (Frente)
-      [0, 3, 12],    // Sur (Atrás)
+      [0, 3, -12],   // Norte (Frente al portal)
+      [0, 3, 12],    // Sur (Atrás del spawn)
       [12, 3, 0],    // Este (Derecha)
       [-12, 3, 0],   // Oeste (Izquierda)
     ];
 
     cardinalPositions.forEach((pos, idx) => {
-      const light = new THREE.PointLight(cardinalColors[idx], 1.2, 22);
+      const light = new THREE.PointLight(cardinalColors[idx], 1.4, 28);
       light.position.set(...pos);
       this.scene.add(light);
     });
@@ -58,19 +52,18 @@ export class Environment {
     // Suelo infinito
     const floorGeo = new THREE.PlaneGeometry(120, 120, 40, 40);
     const floorMat = new THREE.MeshStandardMaterial({
-      color: 0x070714,
-      roughness: 0.6,
-      metalness: 0.4,
+      color: 0x0d0d24,
+      roughness: 0.35,
+      metalness: 0.6,
     });
     const floor = new THREE.Mesh(floorGeo, floorMat);
     floor.rotation.x = -Math.PI / 2;
-    floor.receiveShadow = true;
     this.scene.add(floor);
 
     // Rejilla cibernética primaria
-    const grid = new THREE.GridHelper(120, 60, 0x00f0ff, 0x1a1a3a);
+    const grid = new THREE.GridHelper(120, 60, 0x00f0ff, 0x2e1e68);
     grid.position.y = 0.01;
-    grid.material.opacity = 0.4;
+    grid.material.opacity = 0.55;
     grid.material.transparent = true;
     this.scene.add(grid);
 
@@ -82,7 +75,7 @@ export class Environment {
         color: idx % 2 === 0 ? 0x00f0ff : 0x6c63ff,
         side: THREE.DoubleSide,
         transparent: true,
-        opacity: 0.65 - idx * 0.1,
+        opacity: 0.75 - idx * 0.1,
       });
       const ring = new THREE.Mesh(ringGeo, ringMat);
       ring.rotation.x = -Math.PI / 2;
@@ -97,9 +90,9 @@ export class Environment {
     const skyMat = new THREE.ShaderMaterial({
       side: THREE.BackSide,
       uniforms: {
-        skyColor:     { value: new THREE.Color(0x02020a) },
-        horizonColor: { value: new THREE.Color(0x190f3b) },
-        groundColor:  { value: new THREE.Color(0x050512) },
+        skyColor:     { value: new THREE.Color(0x0a0624) },
+        horizonColor: { value: new THREE.Color(0x2d1254) },
+        groundColor:  { value: new THREE.Color(0x0e0926) },
       },
       vertexShader: `
         varying vec3 vWorldPosition;
@@ -137,7 +130,8 @@ export class Environment {
     const radius = 10; // 10 metros del centro
 
     for (let i = 0; i < count; i++) {
-      const angle = (i / count) * Math.PI * 2;
+      // Offset de medio paso para dejar libre el corredor central Z (despejando la vista frontal)
+      const angle = ((i + 0.5) / count) * Math.PI * 2;
       const x = Math.sin(angle) * radius;
       const z = Math.cos(angle) * radius;
       const height = 4.5 + Math.sin(i * 1.5) * 1.5;
@@ -146,19 +140,18 @@ export class Environment {
       const geo = new THREE.BoxGeometry(0.35, height, 0.35);
       const isCyan = i % 2 === 0;
       const mat = new THREE.MeshStandardMaterial({
-        color: 0x0b0b1e,
-        roughness: 0.2,
-        metalness: 0.9,
+        color: 0x141432,
+        roughness: 0.25,
+        metalness: 0.8,
         emissive: isCyan ? 0x00f0ff : 0xff007f,
-        emissiveIntensity: 0.2,
+        emissiveIntensity: 0.35,
       });
       const monolith = new THREE.Mesh(geo, mat);
       monolith.position.set(x, height / 2, z);
       monolith.rotation.y = angle;
-      monolith.castShadow = true;
       this.scene.add(monolith);
 
-      // Baliza de luz en la cima de cada monolito
+      // Baliza de luz en la cima de cada monolito (auto-iluminada sin point light redundante)
       const beaconGeo = new THREE.SphereGeometry(0.12, 16, 16);
       const beaconMat = new THREE.MeshBasicMaterial({
         color: isCyan ? 0x00f0ff : 0xff007f,
@@ -166,10 +159,6 @@ export class Environment {
       const beacon = new THREE.Mesh(beaconGeo, beaconMat);
       beacon.position.set(x, height + 0.1, z);
       this.scene.add(beacon);
-
-      const beaconLight = new THREE.PointLight(isCyan ? 0x00f0ff : 0xff007f, 0.6, 6);
-      beaconLight.position.set(x, height + 0.1, z);
-      this.scene.add(beaconLight);
     }
   }
 
@@ -262,6 +251,19 @@ export class Environment {
         orb.position.y = u.heightOffset + Math.sin(time * 2 + u.baseAngle) * 0.25;
         orb.rotation.x += delta * 1.2;
         orb.rotation.y += delta * 1.5;
+      });
+    }
+  }
+
+  dispose() {
+    if (this.starfield) {
+      this.starfield.geometry?.dispose?.();
+      this.starfield.material?.dispose?.();
+    }
+    if (this.orbs) {
+      this.orbs.forEach((orb) => {
+        orb.geometry?.dispose?.();
+        orb.material?.dispose?.();
       });
     }
   }

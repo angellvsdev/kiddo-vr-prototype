@@ -62,12 +62,23 @@ export class DownhillMode {
     this.hud.mesh.visible = false;
 
     this._resetRace();
+    this._syncRig();
   }
 
   // ─── Ciclo de vida (interfaz común con ModeManager) ───────────────────────
 
   enter() {
     this._resetRace();
+
+    // Asegurar que el rig contenga la bicicleta, el HUD y la cámara
+    if (this.rig) {
+      this.rig.add(this.bike.group);
+      this.rig.add(this.hud.mesh);
+      if (this.camera) {
+        this.rig.add(this.camera);
+      }
+    }
+
     this.bike.setVisible(true);
     this.hud.mesh.visible = true;
     this._sfx('setAmbienceEnabled', false); // sin oleaje marino en la montaña
@@ -77,7 +88,13 @@ export class DownhillMode {
       // agachado. La inclinación baja la vista para que el manillar y la rueda se vean.
       this.camera.position.set(0, 1.35, 0);
       this.camera.rotation.set(-0.2, 0, 0);
+    } else if (this.camera) {
+      this.camera.position.set(0, 0, 0);
+      this.camera.rotation.set(0, 0, 0);
     }
+
+    // Sincronizar inmediatamente la posición del rig y la bicicleta con el inicio de la pista
+    this._syncRig();
   }
 
   exit() {
@@ -236,7 +253,7 @@ export class DownhillMode {
     this.phase = 'finished';
 
     const totalTimeSec = this._netTime();
-    this.message = `META · ${formatTime(totalTimeSec)} · R o A+B para reiniciar`;
+    this.message = `META · ${formatTime(totalTimeSec)} · Regresando al Lobby...`;
     this._sfx('playVictoryFanfare');
     this._emit('RACE_FINISH', {
       totalTimeSec,
@@ -245,6 +262,13 @@ export class DownhillMode {
       coins: this.coinsTaken,
       splits: this.splits,
     });
+
+    // Notificar al host para regresar al Lobby tras 5 segundos
+    setTimeout(() => {
+      if (this.onFinish) {
+        this.onFinish();
+      }
+    }, 5000);
   }
 
   _resetRace() {

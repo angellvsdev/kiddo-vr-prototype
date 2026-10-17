@@ -274,18 +274,22 @@
       </div>
     </div>
 
-    <!-- Selector de modo de juego (antes de entrar a VR).
-     PEGAR dentro de <body>, antes del bloque de acceso por URL. -->
+<!-- Selector de niveles y modos (accesible desde pantalla) -->
 <div id="mode-switch" class="glass-card">
-  <button class="mode-btn active" data-mode="sea">🏝️ Travesía costera<kbd>1</kbd></button>
-  <button class="mode-btn" data-mode="downhill">🚵 Descenso en bici<kbd>2</kbd></button>
+  <button class="mode-btn active" data-level="lobby">🏛️ Lobby<kbd>0</kbd></button>
+  <button class="mode-btn" data-level="coast">🏝️ Costa<kbd>1</kbd></button>
+  <button class="mode-btn" data-level="llano">🌅 Llano<kbd>2</kbd></button>
+  <button class="mode-btn" data-level="cyber">🌌 Cyber<kbd>3</kbd></button>
+  <button class="mode-btn" data-mode="downhill">🚵 Descenso<kbd>4</kbd></button>
 </div>
 
 <!-- URLs de Acceso -->
     <div id="access-info" class="glass-card">
       <strong>🌐 Acceso directo Quest 3</strong>
-      Túnel seguro activo:<br/>
-      <span class="url-link">https://immunology-globe-potato-tremendous.trycloudflare.com</span>
+      Túnel seguro activo (recomendado):<br/>
+      <span class="url-link">https://bicycle-invite-harbour-shoe.trycloudflare.com</span><br/>
+      <span style="opacity: 0.7;">O red local WiFi:</span><br/>
+      <span class="url-link">https://192.168.100.165:5173</span>
     </div>
 
     <!-- Botón Toggle Debug -->

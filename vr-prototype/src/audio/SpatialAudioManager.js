@@ -32,6 +32,7 @@ export class SpatialAudioManager {
       this.masterGain.connect(this.ctx.destination);
 
       if (this.ambience === 'llano') this._startLlanoAmbience();
+      else if (this.ambience === 'cyber' || this.ambience === 'lobby') this._startCyberAmbience(this.ambience === 'lobby' ? 0.06 : 0.12);
       else this._startOceanSurf();
       this._initialized = true;
     } catch (e) {
@@ -157,6 +158,48 @@ export class SpatialAudioManager {
     cricket.start();
     chirp.start();
     phrase.start();
+  }
+
+  /**
+   * Zumbido sintetizado espacial cyberpunk para Cyber-Arena y Lobby
+   */
+  _startCyberAmbience(gainLevel = 0.12) {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(55, ctx.currentTime);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(140, ctx.currentTime);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(gainLevel, ctx.currentTime);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start();
+  }
+
+  /**
+   * Pulso de energía cinética al pedalear en la Cyber-Arena
+   * @param {number} strength - Intensidad [0..1]
+   */
+  playCyberPulse(strength = 0.5) {
+    this._ensureContext();
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(220, t);
+    osc.frequency.exponentialRampToValueAtTime(440, t + 0.15);
+    const volume = Math.min(0.25, Math.max(0.04, strength * 0.25));
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.2);
+    osc.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.22);
   }
 
   /**

@@ -230,7 +230,36 @@
         text-align: center;
         font-size: 10px;
       }
-    </style>
+    /* ─── Selector de modo de juego ───────────────────────────────────────────────
+   PEGAR dentro de la hoja de estilos de index.html, justo antes de su cierre. */
+#mode-switch {
+  position: fixed;
+  top: 76px;
+  left: 20px;
+  padding: 6px;
+  display: flex;
+  gap: 6px;
+  z-index: 100;
+}
+.mode-btn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  color: #c7d2fe;
+  font-size: 12px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+.mode-btn:hover { border-color: #00f0ff; }
+.mode-btn.active {
+  background: rgba(108, 99, 255, 0.35);
+  border-color: #00f0ff;
+  color: #ffffff;
+}
+.mode-btn kbd { font-size: 10px; opacity: 0.6; margin-left: 4px; }
+
+</style>
   </head>
   <body>
 
@@ -245,7 +274,14 @@
       </div>
     </div>
 
-    <!-- URLs de Acceso -->
+    <!-- Selector de modo de juego (antes de entrar a VR).
+     PEGAR dentro de <body>, antes del bloque de acceso por URL. -->
+<div id="mode-switch" class="glass-card">
+  <button class="mode-btn active" data-mode="sea">🏝️ Travesía costera<kbd>1</kbd></button>
+  <button class="mode-btn" data-mode="downhill">🚵 Descenso en bici<kbd>2</kbd></button>
+</div>
+
+<!-- URLs de Acceso -->
     <div id="access-info" class="glass-card">
       <strong>🌐 Acceso directo Quest 3</strong>
       Túnel seguro activo:<br/>

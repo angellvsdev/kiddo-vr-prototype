@@ -132,15 +132,25 @@ Kiddo VR/
         ├── scene/                       # Gestión de entornos y mundos 3D
         │   ├── SceneManager.js          # Orquestador maestro de entidades, cámara y eventos
         │   ├── CoastEnvironment.js     # Océano Water, cielo Sky, playa, rocas y palmeras
-        │   └── Environment.js          # Entorno cósmico perimetral alternativo
+        │   ├── Environment.js          # Entorno cósmico perimetral alternativo
+        │   ├── LlanoEnvironment.js     # [Nivel Llano] Sabana, cielo de atardecer, sendero, samanes y moriches
+        │   └── LlanoSceneManager.js    # [Nivel Llano] Orquestador del nivel (jinete, caballo, meta)
         │
         ├── entities/                    # Entidades interactivas del mundo
         │   ├── Raft.js                  # Balsa: troncos 3D, palas giratorias, física y dashboard
         │   ├── Buoy.js                  # Boya marina: torreta, baliza luminosa y pirotecnia
-        │   └── PearlManager.js          # Coleccionables: 12 perlas, colisiones y efectos
+        │   ├── PearlManager.js          # Coleccionables: 12 perlas, colisiones y efectos
+        │   ├── Horse.js                 # [Nivel Llano] Caballo procedural movido por pedales
+        │   ├── LlanoOrbManager.js       # [Nivel Llano] Orbes del Atardecer: coleccionables y puntos
+        │   ├── HatoGate.js              # [Nivel Llano] Portón del hato (meta) y cocuyos
+        │   └── RiderDashboard.js        # [Nivel Llano] Tablero holográfico del jinete
         │
         ├── cinematics/                  # Secuencias cinemáticas inmersivas
-        │   └── CoastCinematicManager.js # Transición suave de spawn en playa a balsa
+        │   ├── CoastCinematicManager.js # Transición suave de spawn en playa a balsa
+        │   └── LlanoCinematicManager.js # [Nivel Llano] Jinete a pie → monta el caballo
+        │
+        ├── levels/                      # Registro de niveles (base del futuro lobby)
+        │   └── registry.js              # Contrato de nivel, selección por ?level=<id>
         │
         ├── input/                       # Controladores de entrada de usuario
         │   └── PedalController.js       # Captura de pedales físicos vía Gamepad API
@@ -179,6 +189,27 @@ Kiddo VR/
 | **`SpatialAudioManager.js`** | Sintetiza en tiempo real todo el paisaje sonoro con Web Audio API: ruido rosa de oleaje marino, salpicadura rítmica de pedales y notas triunfales. | Auto-inicializado con la primera interacción del usuario (`pointerdown` o botón VR). |
 | **`XRSession.js`** | Solicita y gestiona la sesión `immersive-vr` con modo `local-floor`. Diagnostica contexto seguro HTTPS y compatibilidad del navegador. | Conecta el DOM (`#btn-enter-vr`) con el `renderer.xr`. |
 | **`XRController.js`** | Captura estados analógicos y digitales de los mandos Meta Quest Touch, renderiza mandos estilizados y proporciona disparo de pulsos hápticos (`hapticActuators`). | Informa el estado de mandos a `SceneManager` y `debug.js`. |
+
+---
+
+## 🗺️ Niveles
+
+Cada nivel es una clase autocontenida que cumple el contrato documentado en `src/levels/registry.js` (`scene`, `camera`, `update`, `onSessionStart/End`, `getTelemetry`, `dispose`), de modo que un lobby de selección solo necesita listar `LEVELS` y llamar a `loadLevel(id)`. Mientras el lobby no exista, el nivel se elige con el parámetro de URL (se sirve por el mismo HTTPS de Vite / túnel Cloudflare de siempre):
+
+| Nivel | URL | Descripción |
+| :--- | :--- | :--- |
+| `coast` (por defecto) | `https://<host>:5173/` | Travesía Costera: balsa, perlas y boya |
+| `llano` | `https://<host>:5173/?level=llano` | Atardecer Llanero: el jinete avanza con los pedales por la sabana venezolana hasta el portón del hato |
+
+### 🌅 Nivel Llano — Atardecer Llanero
+
+- **Entorno 360° procedural** (`LlanoEnvironment.js`): cielo de atardecer (`Sky`) con el sol bajo al frente-izquierda, nubes teñidas, sabana ondulada con pasto instanciado, samanes, palmas moriche, cercas de corral y línea de árboles en el horizonte. Sin descargas de texturas ni modelos.
+- **Flujo:** a pie junto al caballo → cinemática de montar (`LlanoCinematicManager`, 3.6 s, smoothstep libre de cinetosis) → avance por pedaleo → portón del hato (`GOAL_REACHED` por el `DeviceActionBridge`).
+- **Avance = pedaleo del niño (fisioterapia):** el caballo avanza según la cadencia real: velocidad = RPM/60 × 2.6 m por vuelta de pedal (tope 3.4 m/s ≈ 78 RPM). Sin pedalear se detiene en ~3 s y mantener un pedal presionado sin girar no lo mueve. Verificado de 10 a 80 RPM (≈2.6 m/vuelta). El tiempo de inactividad de `PedalController` se adapta a la cadencia, así que el pedaleo lento de rehabilitación (~10-20 RPM) se lee bien.
+- **Orbes del Atardecer y puntos:** 12 orbes ámbar a lo largo del sendero (100 puntos c/u, mostrados en el tablero). Cada uno dispara `PEARL_COLLECTED` hacia el dispositivo externo, igual que las perlas del nivel costero, y `GOAL_REACHED` incluye los orbes recogidos.
+- **Comodidad VR:** el caballo sigue el sendero por sí solo, así que el jinete puede mirar libremente en 360° sin que el rumbo cambie. El stick (VR) o `A`/`D` (pantalla) desvían manualmente y pausan el guiado 2.5 s.
+- **Controles:** pedales (Gamepad API) > gatillo/stick de los mandos Quest > `W`/`Espacio`. En pantalla, arrastra el ratón/dedo para mirar en 360°.
+- **Audio:** viento y grillos procedurales (`SpatialAudioManager({ ambience: 'llano' })`) y pisadas de casco al ritmo de la marcha.
 
 ---
 

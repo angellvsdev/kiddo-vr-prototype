@@ -22,6 +22,15 @@ import { SpatialAudioManager } from '../audio/SpatialAudioManager.js';
 import { PedalController } from '../input/PedalController.js';
 
 export class SceneManager {
+  static meta = {
+    id: 'coast',
+    title: 'Travesía Costera',
+    hudTitle: '🏝️ TRAVESÍA COSTERA • QUEST 3',
+    pageTitle: 'Travesía Costera VR — Meta Quest 3',
+    modeHint: '🚴 <strong>Pedalea</strong> o pulsa <strong>Espacio/W</strong> para navegar | <strong>A/D</strong> para timonear',
+    statusText: '⚡ Mapa costero activo — Pulsa el botón para entrar a VR inmersivo',
+  };
+
   /**
    * @param {THREE.WebGLRenderer} renderer
    * @param {import('../vr/XRController.js').XRControllerManager} controllerManager
@@ -277,5 +286,15 @@ export class SceneManager {
         });
       }
     }
+  }
+
+  // ─── Telemetría para el panel de depuración ─────────────────────────────────
+  getTelemetry() {
+    return {
+      pedalState: this.pedalController.state,
+      effectiveRpm: this.raft.cadence,
+      pearlsCount: this.pearlManager.collectedCount,
+      targetPearls: this.pearlManager.getTotalCount(),
+    };
   }
 }

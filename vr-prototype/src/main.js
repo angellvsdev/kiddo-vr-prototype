@@ -1,11 +1,11 @@
 /**
  * main.js — Punto de entrada del prototipo VR
- * Orquesta: SceneManager, XRSession, XRControllerManager, DebugOverlay
+ * Orquesta: nivel activo (levels/registry.js), XRSession, XRControllerManager, DebugOverlay
  */
 // Three.js r170+: usar Timer en lugar del deprecated Clock
 import * as THREE from 'three';
 import { Timer } from 'three';
-import { SceneManager } from './scene/SceneManager.js';
+import { resolveLevelId, loadLevel } from './levels/registry.js';
 import { XRSessionManager } from './vr/XRSession.js';
 import { XRControllerManager } from './vr/XRController.js';
 import { DebugOverlay } from './utils/debug.js';
@@ -27,43 +27,69 @@ document.body.appendChild(renderer.domElement);
 
 // ─── Módulos ──────────────────────────────────────────────────────────────────
 const controllers = new XRControllerManager(renderer);
-const sceneManager = new SceneManager(renderer, controllers);
-const xrSession = new XRSessionManager(renderer, sceneManager);
 const debug = new DebugOverlay();
 
-// ─── Resize handler ───────────────────────────────────────────────────────────
-window.addEventListener('resize', () => {
-  sceneManager.camera.aspect = window.innerWidth / window.innerHeight;
-  sceneManager.camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
+/** Actualiza el HUD HTML con los textos del nivel activo */
+function applyLevelMeta(meta) {
+  if (!meta) return;
+  document.title = meta.pageTitle ?? document.title;
+  const set = (id, html) => {
+    const el = document.getElementById(id);
+    if (el && html) el.innerHTML = html;
+  };
+  set('brand-title', meta.hudTitle);
+  set('mode-hint', meta.modeHint);
+  set('status-bar', meta.statusText);
+}
 
-// ─── Botón Enter VR ───────────────────────────────────────────────────────────
-document.getElementById('btn-enter-vr').addEventListener('click', () => {
-  xrSession.enterVR();
-});
+async function boot() {
+  // Nivel elegido por ?level=<id> (hasta que exista el lobby). Ver levels/registry.js
+  const levelId = resolveLevelId();
+  const Level = await loadLevel(levelId);
+  const sceneManager = new Level(renderer, controllers);
+  const xrSession = new XRSessionManager(renderer, sceneManager);
+  applyLevelMeta(Level.meta);
 
-// ─── Game loop ────────────────────────────────────────────────────────────────
-const timer = new Timer();
+  // Gancho de depuración solo en desarrollo (no se incluye en el build de producción)
+  if (import.meta.env.DEV) {
+    window.__kiddo = { renderer, sceneManager, THREE, levelId };
+  }
 
-renderer.setAnimationLoop((timestamp, frame) => {
-  timer.update(timestamp);
-  const delta = timer.getDelta();
-
-  // Leer estado de los Touch Controllers
-  const controllerState = controllers.update();
-
-  // Actualizar escena con input de controllers
-  sceneManager.update(delta, controllerState, frame);
-
-  // Actualizar debug overlay con telemetría de juego y pedales
-  debug.update(controllerState, {
-    pedalState: sceneManager.pedalController.state,
-    effectiveRpm: sceneManager.raft.cadence,
-    pearlsCount: sceneManager.pearlManager.collectedCount,
-    targetPearls: sceneManager.pearlManager.getTotalCount(),
+  // ─── Resize handler ─────────────────────────────────────────────────────────
+  window.addEventListener('resize', () => {
+    sceneManager.camera.aspect = window.innerWidth / window.innerHeight;
+    sceneManager.camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  // Renderizar
-  renderer.render(sceneManager.scene, sceneManager.camera);
+  // ─── Botón Enter VR ─────────────────────────────────────────────────────────
+  document.getElementById('btn-enter-vr').addEventListener('click', () => {
+    xrSession.enterVR();
+  });
+
+  // ─── Game loop ──────────────────────────────────────────────────────────────
+  const timer = new Timer();
+
+  renderer.setAnimationLoop((timestamp, frame) => {
+    timer.update(timestamp);
+    const delta = timer.getDelta();
+
+    // Leer estado de los Touch Controllers
+    const controllerState = controllers.update();
+
+    // Actualizar escena con input de controllers
+    sceneManager.update(delta, controllerState, frame);
+
+    // Actualizar debug overlay con telemetría de juego y pedales
+    debug.update(controllerState, sceneManager.getTelemetry());
+
+    // Renderizar
+    renderer.render(sceneManager.scene, sceneManager.camera);
+  });
+}
+
+boot().catch((err) => {
+  console.error('[Kiddo VR] No se pudo iniciar el nivel:', err);
+  const status = document.getElementById('status-bar');
+  if (status) status.textContent = `Error al cargar el nivel: ${err.message}`;
 });

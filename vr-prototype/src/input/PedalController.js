@@ -29,6 +29,7 @@ export class PedalController {
     this.lastStrokeTime = performance.now();
     this.lastPressedFoot = null;
     this.smoothedCadence = 0;
+    this.lastHalfMs = 0; // duración de la última media vuelta (para el tiempo de inactividad adaptativo)
 
     // Detectar conexión/desconexión de gamepad
     window.addEventListener('gamepadconnected', (e) => {
@@ -57,7 +58,7 @@ export class PedalController {
    * @param {number} delta
    * @returns {{ left: number, right: number, connected: boolean, name: string, power: number, cadenceRpm: number, strokeDetected: boolean }}
    */
-  update() {
+  update(delta = 0.016) {
     if (this.gamepadIndex === null) {
       // Sin pedales: intentar detectar cualquier gamepad nuevo
       const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
@@ -130,7 +131,8 @@ export class PedalController {
 
     if (currentFoot && currentFoot !== this.lastPressedFoot) {
       const elapsedMs = now - this.lastStrokeTime;
-      if (elapsedMs > 120 && elapsedMs < 2500) {
+      if (elapsedMs > 120 && elapsedMs < 4500) {
+        this.lastHalfMs = elapsedMs;
         // Medio giro = 1 stroke. Cadencia completa en RPM:
         const instantRpm = (60000 / elapsedMs) * 0.5;
         this.smoothedCadence = this.smoothedCadence * 0.4 + instantRpm * 0.6;
@@ -140,9 +142,11 @@ export class PedalController {
       this.lastStrokeTime = now;
     }
 
-    // Decaimiento cuando se deja de pedalear
-    if (now - this.lastStrokeTime > 1400) {
-      this.smoothedCadence = Math.max(0, this.smoothedCadence - (delta ?? 0.016) * 45);
+    // Decaimiento cuando se deja de pedalear. El tiempo de inactividad se adapta a la cadencia:
+    // con pedaleo lento (rehabilitación, ~10-20 RPM) una media vuelta dura >1.4 s y no debe contarse como parada.
+    const idleLimitMs = Math.min(3500, Math.max(1400, this.lastHalfMs * 1.5));
+    if (now - this.lastStrokeTime > idleLimitMs) {
+      this.smoothedCadence = Math.max(0, this.smoothedCadence - delta * 45);
     }
 
     const analogIntensity = Math.max(this.state.left, this.state.right);

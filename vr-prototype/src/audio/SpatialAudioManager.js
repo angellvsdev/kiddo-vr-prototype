@@ -8,7 +8,11 @@
  * - Fanfarria triunfal al llegar a la boya
  */
 export class SpatialAudioManager {
-  constructor() {
+  /**
+   * @param {{ ambience?: 'ocean'|'llano' }} options - Paisaje sonoro de fondo del nivel
+   */
+  constructor({ ambience = 'ocean' } = {}) {
+    this.ambience = ambience;
     this.ctx = null;
     this.masterGain = null;
     this.surfGain = null;
@@ -27,7 +31,8 @@ export class SpatialAudioManager {
       this.masterGain.gain.setValueAtTime(0.7, this.ctx.currentTime);
       this.masterGain.connect(this.ctx.destination);
 
-      this._startOceanSurf();
+      if (this.ambience === 'llano') this._startLlanoAmbience();
+      else this._startOceanSurf();
       this._initialized = true;
     } catch (e) {
       console.warn('[Audio] Error inicializando Web Audio:', e);
@@ -91,6 +96,97 @@ export class SpatialAudioManager {
 
     whiteNoise.start();
     lfo.start();
+  }
+
+  /**
+   * Ambiente del llano al atardecer: viento suave entre el pasto + grillos intermitentes
+   */
+  _startLlanoAmbience() {
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+
+    // Viento: ruido blanco filtrado con una modulación lenta de la banda
+    const len = ctx.sampleRate * 4;
+    const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+    const out = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) out[i] = (Math.random() * 2 - 1) * 0.5;
+    const noise = ctx.createBufferSource();
+    noise.buffer = buf;
+    noise.loop = true;
+
+    const band = ctx.createBiquadFilter();
+    band.type = 'bandpass';
+    band.frequency.setValueAtTime(520, ctx.currentTime);
+    band.Q.setValueAtTime(0.7, ctx.currentTime);
+    const lfo = ctx.createOscillator();
+    lfo.frequency.setValueAtTime(0.11, ctx.currentTime);
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.setValueAtTime(240, ctx.currentTime);
+    lfo.connect(lfoGain);
+    lfoGain.connect(band.frequency);
+
+    this.windGain = ctx.createGain();
+    this.windGain.gain.setValueAtTime(0.16, ctx.currentTime);
+    noise.connect(band);
+    band.connect(this.windGain);
+    this.windGain.connect(this.masterGain);
+    noise.start();
+    lfo.start();
+
+    // Grillos: tono agudo con trémolo rápido, compuerta abierta/cerrada por un LFO lento
+    const cricket = ctx.createOscillator();
+    cricket.type = 'sine';
+    cricket.frequency.setValueAtTime(4300, ctx.currentTime);
+    const trem = ctx.createGain();
+    trem.gain.setValueAtTime(0, ctx.currentTime);
+    const chirp = ctx.createOscillator();
+    chirp.type = 'square';
+    chirp.frequency.setValueAtTime(28, ctx.currentTime);
+    const chirpDepth = ctx.createGain();
+    chirpDepth.gain.setValueAtTime(0.012, ctx.currentTime);
+    chirp.connect(chirpDepth);
+    chirpDepth.connect(trem.gain);
+    const phrase = ctx.createOscillator();
+    phrase.frequency.setValueAtTime(0.35, ctx.currentTime);
+    const phraseDepth = ctx.createGain();
+    phraseDepth.gain.setValueAtTime(0.012, ctx.currentTime);
+    phrase.connect(phraseDepth);
+    phraseDepth.connect(trem.gain);
+    cricket.connect(trem);
+    trem.connect(this.masterGain);
+    cricket.start();
+    chirp.start();
+    phrase.start();
+  }
+
+  /**
+   * Pisada de casco sobre tierra seca
+   * @param {number} strength - Intensidad [0..1] según velocidad del caballo
+   */
+  playHoofBeat(strength = 0.5) {
+    this._ensureContext();
+    if (!this.ctx) return;
+
+    const t = this.ctx.currentTime;
+    const osc = this.ctx.createOscillator();
+    const gain = this.ctx.createGain();
+    const filter = this.ctx.createBiquadFilter();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(55, t + 0.08);
+    filter.type = 'lowpass';
+    filter.frequency.setValueAtTime(600, t);
+
+    const volume = Math.min(0.3, Math.max(0.06, strength * 0.3));
+    gain.gain.setValueAtTime(volume, t);
+    gain.gain.exponentialRampToValueAtTime(0.001, t + 0.12);
+
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain);
+    osc.start(t);
+    osc.stop(t + 0.14);
   }
 
   /**

@@ -71,8 +71,11 @@ export class DebugOverlay {
           ? `${Math.round(p.cadenceRpm)} RPM | ${(p.power * 100).toFixed(0)}%`
           : `Emulado (${Math.round(extraData.effectiveRpm ?? 0)} RPM)`;
       }
-      if (this._pearlsVal && extraData.pearlsCount !== undefined) {
-        this._pearlsVal.textContent = `${extraData.pearlsCount} / ${extraData.targetPearls}`;
+      if (this._pearlsVal) {
+        // Los niveles sin perlas (p. ej. el llano) ocultan la fila
+        const hasPearls = extraData.pearlsCount !== undefined;
+        this._pearlsVal.parentElement.style.display = hasPearls ? '' : 'none';
+        if (hasPearls) this._pearlsVal.textContent = `${extraData.pearlsCount} / ${extraData.targetPearls}`;
       }
     }
   }

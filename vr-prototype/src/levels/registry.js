@@ -32,7 +32,7 @@ export const LEVELS = {
   },
   cyber: {
     id: 'cyber',
-    title: 'Cyber-Arena Cósmica',
+    title: 'Camino Estelar',
     load: () => import('../scene/CyberSceneManager.js').then((m) => m.CyberSceneManager),
   },
 };

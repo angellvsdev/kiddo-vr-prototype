@@ -229,7 +229,7 @@ export class Raft {
     ctx.roundRect(barX, barY, barW, barH, 13);
     ctx.fill();
 
-    const totalTrack = 160; // metros estimados
+    const totalTrack = 145; // metros de la ruta balsa → boya (igual que la landing y GOAL_REACHED)
     const progress = Math.max(0, Math.min(1, 1 - (this.distanceToBuoy / totalTrack)));
     ctx.fillStyle = '#00f0ff';
     ctx.beginPath();

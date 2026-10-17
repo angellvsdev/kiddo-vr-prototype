@@ -1,6 +1,6 @@
 /**
  * CyberSceneManager.js
- * Orquestador del nivel "Cyber-Arena Cósmica":
+ * Orquestador del nivel "Camino Estelar" (antes "Cyber-Arena Cósmica"; el id interno sigue siendo `cyber`):
  * - Pista ascendente futurista ("hacia arriba") curvada en 3D que trepa hacia el cosmos
  * - Rieles de luz de neón (cian y magenta), pórticos cibernéticos luminosos y plataforma cumbre
  * - 10 estrellas cósmicas 3D coleccionables distribuidas a lo largo de la rampa
@@ -44,9 +44,9 @@ export function getCyberTrackSlope(z) {
 export class CyberSceneManager {
   static meta = {
     id: 'cyber',
-    title: 'Cyber-Arena Cósmica',
-    hudTitle: '🌌 CYBER-ARENA CÓSMICA • QUEST 3',
-    pageTitle: 'Cyber-Arena Cósmica VR — Meta Quest 3',
+    title: 'Camino Estelar',
+    hudTitle: '🌌 CAMINO ESTELAR • QUEST 3',
+    pageTitle: 'Camino Estelar VR — Meta Quest 3',
     modeHint: '🚴 <strong>Pedalea</strong> hacia arriba para recolectar estrellas y cruzar el portal | <strong>A/D</strong> para timonear',
     statusText: '🌌 Pista ascendente activa — Recolecta las 10 estrellas cósmicas y cruza el portal en la cima',
   };
@@ -523,7 +523,7 @@ export class CyberSceneManager {
     ctx.fillStyle = '#00f0ff';
     ctx.font = 'bold 26px system-ui, sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('🌌 CYBER-ARENA • ASCENSO', 256, 42);
+    ctx.fillText('🌌 CAMINO ESTELAR • ASCENSO', 256, 42);
 
     // Velocidad y Cadencia
     ctx.fillStyle = '#ffffff';

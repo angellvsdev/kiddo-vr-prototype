@@ -1,6 +1,6 @@
 /**
  * main.js — Punto de entrada del prototipo VR
- * Orquesta: nivel activo (Lobby, Costa, Llano, Cyber-Arena), modos de juego (Descenso en bici),
+ * Orquesta: nivel activo (Lobby, Costa, Llano, Camino Estelar), modos de juego (Descenso en bici),
  * XRSession, XRControllerManager, VRFadeOverlay y DebugOverlay.
  */
 // Three.js r170+: usar Timer en lugar del deprecated Clock

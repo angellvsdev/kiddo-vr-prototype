@@ -194,12 +194,27 @@ Kiddo VR/
 
 ## 🗺️ Niveles
 
-Cada nivel es una clase autocontenida que cumple el contrato documentado en `src/levels/registry.js` (`scene`, `camera`, `update`, `onSessionStart/End`, `getTelemetry`, `dispose`), de modo que un lobby de selección solo necesita listar `LEVELS` y llamar a `loadLevel(id)`. Mientras el lobby no exista, el nivel se elige con el parámetro de URL (se sirve por el mismo HTTPS de Vite / túnel Cloudflare de siempre):
+Cada nivel es una clase autocontenida que cumple el contrato documentado en `src/levels/registry.js` (`scene`, `camera`, `update`, `onSessionStart/End`, `getTelemetry`, `dispose`). El lobby (`?level=lobby`, por defecto) lista los niveles y los carga con `loadLevel(id)`; también se pueden abrir directo con el parámetro de URL (mismo HTTPS de Vite / túnel Cloudflare de siempre):
 
-| Nivel | URL | Descripción |
-| :--- | :--- | :--- |
-| `coast` (por defecto) | `https://<host>:5173/` | Travesía Costera: balsa, perlas y boya |
-| `llano` | `https://<host>:5173/?level=llano` | Atardecer Llanero: el jinete avanza con los pedales por la sabana venezolana hasta el portón del hato |
+| # | Nivel | URL | Descripción |
+| :-: | :--- | :--- | :--- |
+| 1 | Travesía Costera (`coast`) | `?level=coast` | Balsa a pedales: 12 perlas y una boya a 145 m |
+| 2 | Atardecer Llanero (`llano`) | `?level=llano` | Jinete a caballo por la sabana: 12 orbes y el portón del hato a 360 m |
+| 3 | **Camino Estelar** (`cyber`) | `?level=cyber` | Rampa de neón que sube 18 m al cosmos: 10 estrellas y el portal de la cumbre |
+| 4 | Descenso en Bici (modo `downhill`) | `?mode=downhill` | Pista de montaña contra el reloj: 92 monedas, 2 checkpoints, 14 obstáculos |
+
+> El nivel 3 se llamaba "Cyber-Arena Cósmica". Ahora se muestra como **Camino Estelar**; su id interno (`cyber`), la URL y la tecla `3` no cambian.
+
+### 📏 Escalas oficiales (la landing y el juego deben decir lo mismo)
+
+Estas cifras salen del código y las usa la página de presentación (`re-mover-clay`). Si cambias una, actualiza también la landing.
+
+| Nivel | Recorrido | Coleccionables | Dónde está en el código |
+| :--- | :--- | :--- | :--- |
+| Travesía Costera | **145 m** (balsa en z=-3 → boya en z=-148) | 12 perlas | `SceneManager.js` (boya), `Raft.js` (`totalTrack`), `PearlManager.js` |
+| Atardecer Llanero | **360 m** | 12 orbes (100 pts c/u) | `LLANO_ROUTE_LENGTH` en `LlanoEnvironment.js`, `LlanoOrbManager.js` |
+| Camino Estelar | **75 m** de recorrido (HUD) hasta el portal, con **18 m** de subida | 10 estrellas | `CyberSceneManager.js` (`getCyberTrackElevation`, `targetStars`) |
+| Descenso en Bici | **977 m** de pista y **182 m** de desnivel | 92 monedas | `downhillConfig.js` (pista generada con `seed: 1337`) |
 
 ### 🌅 Nivel Llano — Atardecer Llanero
 

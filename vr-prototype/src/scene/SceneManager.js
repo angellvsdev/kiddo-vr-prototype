@@ -96,8 +96,9 @@ export class SceneManager {
     // Balsa en la orilla del mar
     this.raft = new Raft(this.scene, this.environment, this.cameraRig);
 
-    // Boya marina de llegada a 145m mar adentro
-    this.buoy = new Buoy(this.scene, this.environment, new THREE.Vector3(0, 0, -145));
+    // Boya marina de llegada a 145 m de la balsa (la balsa sale en z=-3, así que la boya va en z=-148).
+    // Este valor es la "escala oficial" del nivel: la landing y el tablero de la balsa dicen 145 m.
+    this.buoy = new Buoy(this.scene, this.environment, new THREE.Vector3(0, 0, -148));
     this._goalDone = false;
     this.onLevelComplete = null;
 

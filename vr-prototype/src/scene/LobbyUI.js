@@ -136,8 +136,8 @@ export class LobbyUI {
       },
       {
         id: 'cyber',
-        title: 'Cyber-Arena',
-        desc: 'Espacio cósmico original con cuadrícula de neón, orbes y portal de energía.',
+        title: 'Camino Estelar',
+        desc: 'Sube 18 m por una rampa de neón, recoge 10 estrellas y cruza el portal cósmico.',
         tag: 'Futurista • Nivel 3',
         color: '#a855f7',
         icon: '🌌',

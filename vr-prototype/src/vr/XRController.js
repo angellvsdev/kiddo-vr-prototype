@@ -150,4 +150,27 @@ export class XRControllerManager {
 
     return { ...this.state };
   }
+
+  /**
+   * Dispara una pulsación háptica en los mandos Touch de Meta Quest 3
+   * @param {number} intensity - [0..1]
+   * @param {number} durationMs - Duración en milisegundos
+   * @param {'both'|'left'|'right'} hand
+   */
+  triggerHaptic(intensity = 0.7, durationMs = 120, hand = 'both') {
+    const session = this.renderer.xr.getSession();
+    if (!session) return;
+
+    for (const source of session.inputSources) {
+      if (!source.gamepad || !source.gamepad.hapticActuators) continue;
+      const isLeft = source.handedness === 'left';
+      if (hand === 'left' && !isLeft) continue;
+      if (hand === 'right' && isLeft) continue;
+
+      const actuator = source.gamepad.hapticActuators[0];
+      if (actuator && actuator.pulse) {
+        actuator.pulse(intensity, durationMs);
+      }
+    }
+  }
 }

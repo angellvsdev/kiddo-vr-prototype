@@ -56,8 +56,13 @@ renderer.setAnimationLoop((timestamp, frame) => {
   // Actualizar escena con input de controllers
   sceneManager.update(delta, controllerState, frame);
 
-  // Actualizar debug overlay
-  debug.update(controllerState);
+  // Actualizar debug overlay con telemetría de juego y pedales
+  debug.update(controllerState, {
+    pedalState: sceneManager.pedalController.state,
+    effectiveRpm: sceneManager.raft.cadence,
+    pearlsCount: sceneManager.pearlManager.collectedCount,
+    targetPearls: sceneManager.pearlManager.getTotalCount(),
+  });
 
   // Renderizar
   renderer.render(sceneManager.scene, sceneManager.camera);

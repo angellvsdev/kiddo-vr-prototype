@@ -16,12 +16,23 @@
 export class PedalController {
   constructor() {
     this.gamepadIndex = null;
-    this.state = { left: 0, right: 0, connected: false, name: '' };
+    this.state = {
+      left: 0,
+      right: 0,
+      connected: false,
+      name: '',
+      power: 0,
+      cadenceRpm: 0,
+      strokeDetected: false,
+    };
+
+    this.lastStrokeTime = performance.now();
+    this.lastPressedFoot = null;
+    this.smoothedCadence = 0;
 
     // Detectar conexión/desconexión de gamepad
     window.addEventListener('gamepadconnected', (e) => {
       console.log('[Pedal] Gamepad conectado:', e.gamepad.id, 'index:', e.gamepad.index);
-      // Tomar el primer gamepad conectado como pedales
       if (this.gamepadIndex === null) {
         this.gamepadIndex = e.gamepad.index;
         this.state.connected = true;
@@ -35,13 +46,16 @@ export class PedalController {
         this.gamepadIndex = null;
         this.state.connected = false;
         this.state.name = '';
+        this.state.power = 0;
+        this.state.cadenceRpm = 0;
       }
     });
   }
 
   /**
-   * Llamado cada frame — retorna el estado actual normalizado [0..1].
-   * @returns {{ left: number, right: number, connected: boolean, name: string }}
+   * Llamado cada frame — retorna el estado actual normalizado [0..1] y cadencia en RPM.
+   * @param {number} delta
+   * @returns {{ left: number, right: number, connected: boolean, name: string, power: number, cadenceRpm: number, strokeDetected: boolean }}
    */
   update() {
     if (this.gamepadIndex === null) {
@@ -102,6 +116,40 @@ export class PedalController {
     const DEADZONE = 0.05;
     this.state.left  = leftVal  > DEADZONE ? leftVal  : 0;
     this.state.right = rightVal > DEADZONE ? rightVal : 0;
+
+    // ── Cálculo de Cadencia (RPM) y Potencia de Propulsión ──────────────────
+    const now = performance.now();
+    let strokeDetected = false;
+
+    let currentFoot = null;
+    if (this.state.left > 0.35 && this.state.right < 0.25) {
+      currentFoot = 'left';
+    } else if (this.state.right > 0.35 && this.state.left < 0.25) {
+      currentFoot = 'right';
+    }
+
+    if (currentFoot && currentFoot !== this.lastPressedFoot) {
+      const elapsedMs = now - this.lastStrokeTime;
+      if (elapsedMs > 120 && elapsedMs < 2500) {
+        // Medio giro = 1 stroke. Cadencia completa en RPM:
+        const instantRpm = (60000 / elapsedMs) * 0.5;
+        this.smoothedCadence = this.smoothedCadence * 0.4 + instantRpm * 0.6;
+        strokeDetected = true;
+      }
+      this.lastPressedFoot = currentFoot;
+      this.lastStrokeTime = now;
+    }
+
+    // Decaimiento cuando se deja de pedalear
+    if (now - this.lastStrokeTime > 1400) {
+      this.smoothedCadence = Math.max(0, this.smoothedCadence - (delta ?? 0.016) * 45);
+    }
+
+    const analogIntensity = Math.max(this.state.left, this.state.right);
+    const rpmFactor = Math.min(1.0, this.smoothedCadence / 75);
+    this.state.power = Math.max(analogIntensity, rpmFactor);
+    this.state.cadenceRpm = Math.min(130, this.smoothedCadence);
+    this.state.strokeDetected = strokeDetected;
 
     return { ...this.state };
   }

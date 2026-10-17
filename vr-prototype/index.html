@@ -3,8 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Experiencia virtual 360° e inmersiva WebXR para Meta Quest 3" />
-    <title>Experiencia 360° — Meta Quest 3 VR</title>
+    <meta name="description" content="Travesía costera inmersiva en balsa con pedales y recolección de perlas para Meta Quest 3 WebXR" />
+    <title>Travesía Costera VR — Meta Quest 3</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
       body {
@@ -238,10 +238,10 @@
     <div id="top-bar">
       <div id="brand-tag" class="glass-card">
         <span class="indicator"></span>
-        <span>EXPERIENCIA 360° • QUEST 3</span>
+        <span>🏝️ TRAVESÍA COSTERA • QUEST 3</span>
       </div>
       <div id="mode-hint" class="glass-card">
-        🖱️ <strong>Arrastra</strong> para rotar 360° | <strong>WASD</strong> para caminar
+        🚴 <strong>Pedalea</strong> o pulsa <strong>Espacio/W</strong> para navegar | <strong>A/D</strong> para timonear
       </div>
     </div>
 
@@ -255,9 +255,13 @@
     <!-- Botón Toggle Debug -->
     <button id="btn-toggle-debug">🎮 Telemetría</button>
 
-    <!-- Debug Panel Touch Controllers -->
+    <!-- Debug Panel Touch Controllers y Periféricos -->
     <div id="ctrl-debug">
-      <h4>🕹️ Touch Controllers</h4>
+      <h4>🕹️ Telemetría del Sistema</h4>
+      <div class="dbg-row"><span>🚴 Pedales</span><span class="dbg-val" id="dbg-pedals">Buscando...</span></div>
+      <div class="dbg-row"><span>🦪 Perlas</span><span class="dbg-val" id="dbg-pearls">0 / 12</span></div>
+      <div class="dbg-row"><span>⚡ Disp. Ext</span><span class="dbg-val" id="dbg-device-action" style="font-size: 10px;">Esperando acción...</span></div>
+      <h4 style="margin-top: 10px;">🎮 Touch Controllers</h4>
       <div class="dbg-row"><span>Stick Mover</span><span class="dbg-val" id="dbg-move-x">0.00, 0.00</span></div>
       <div class="dbg-row"><span>Stick Girar</span><span class="dbg-val" id="dbg-turn-x">0.00</span></div>
       <div class="dbg-row"><span>Gatillo Izq</span><span class="dbg-val" id="dbg-trigger-l">0%</span></div>
@@ -269,7 +273,7 @@
     <!-- VR Launch UI -->
     <div id="vr-ui">
       <div id="status-bar">
-        ⚡ Modo 360° activo — Pulsa el botón para entrar a VR inmersivo
+        ⚡ Mapa costero activo — Pulsa el botón para entrar a VR inmersivo
       </div>
       <button id="btn-enter-vr">
         <span>🥽</span>

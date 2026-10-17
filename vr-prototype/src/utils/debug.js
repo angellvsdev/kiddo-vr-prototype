@@ -1,6 +1,10 @@
 /**
  * debug.js
- * Panel de debug que muestra el estado de los Touch Controllers del Quest 3.
+ * Panel de debug que muestra telemetría en tiempo real:
+ * - Touch Controllers del Meta Quest 3
+ * - Pedales físicos y cadencia RPM
+ * - Perlas recogidas y distancia
+ * - Disparos de acciones hacia dispositivos externos
  */
 export class DebugOverlay {
   constructor() {
@@ -11,10 +15,25 @@ export class DebugOverlay {
     this._triggerR = document.getElementById('dbg-trigger-r');
     this._btns     = document.getElementById('dbg-btns');
     this._ctrlCount = document.getElementById('dbg-ctrl-count');
+
+    this._pedalVal = document.getElementById('dbg-pedals');
+    this._pearlsVal = document.getElementById('dbg-pearls');
+    this._deviceVal = document.getElementById('dbg-device-action');
+
+    // Escuchar eventos de acciones hacia el dispositivo externo
+    window.addEventListener('external-device-action', (e) => {
+      if (this._deviceVal && e.detail) {
+        this._deviceVal.textContent = `${e.detail.type} (${e.detail.pearlId ?? 'OK'}) @ ${e.detail.at}`;
+        this._deviceVal.style.color = '#00f0ff';
+      }
+    });
   }
 
-  /** @param {object} cs - controllerState del XRControllerManager */
-  update(cs) {
+  /**
+   * @param {object} cs - controllerState del XRControllerManager
+   * @param {object} extraData - { pedalState, pearlsCount, targetPearls }
+   */
+  update(cs, extraData = null) {
     if (!this._panel) return;
 
     if (this._moveX) {
@@ -43,6 +62,18 @@ export class DebugOverlay {
       if (cs.btnA) active.push('A');
       if (cs.btnB) active.push('B');
       this._btns.textContent = active.length ? active.join(' + ') : '—';
+    }
+
+    if (extraData) {
+      if (this._pedalVal && extraData.pedalState) {
+        const p = extraData.pedalState;
+        this._pedalVal.textContent = p.connected
+          ? `${Math.round(p.cadenceRpm)} RPM | ${(p.power * 100).toFixed(0)}%`
+          : `Emulado (${Math.round(extraData.effectiveRpm ?? 0)} RPM)`;
+      }
+      if (this._pearlsVal && extraData.pearlsCount !== undefined) {
+        this._pearlsVal.textContent = `${extraData.pearlsCount} / ${extraData.targetPearls}`;
+      }
     }
   }
 }

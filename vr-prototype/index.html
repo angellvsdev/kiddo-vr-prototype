@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Experiencia virtual 360° e inmersiva WebXR para Meta Quest 3" />
+    <title>Experiencia 360° — Meta Quest 3 VR</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        background: #070714;
+        overflow: hidden;
+        font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        color: #fff;
+        user-select: none;
+      }
+      canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+        cursor: grab;
+      }
+      canvas:active {
+        cursor: grabbing;
+      }
+
+      /* ── Top Bar con Modos y Estado ────────────────────────── */
+      #top-bar {
+        position: fixed;
+        top: 16px;
+        left: 20px;
+        right: 20px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        z-index: 100;
+        pointer-events: none;
+      }
+
+      .glass-card {
+        background: rgba(10, 10, 26, 0.75);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        border: 1px solid rgba(108, 99, 255, 0.25);
+        border-radius: 14px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        pointer-events: all;
+      }
+
+      #brand-tag {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 16px;
+        font-size: 13px;
+        font-weight: 600;
+        color: #e0e7ff;
+      }
+      #brand-tag .indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #00f0ff;
+        box-shadow: 0 0 10px #00f0ff;
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.85); }
+      }
+
+      #mode-hint {
+        padding: 8px 18px;
+        font-size: 12px;
+        color: #a5b4fc;
+        letter-spacing: 0.3px;
+      }
+
+      /* ── VR Launch UI (Abajo) ───────────────────────────────── */
+      #vr-ui {
+        position: fixed;
+        bottom: 30px;
+        left: 50%;
+        transform: translateX(-50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 12px;
+        z-index: 100;
+        pointer-events: none;
+      }
+
+      #status-bar {
+        background: rgba(15, 15, 35, 0.82);
+        backdrop-filter: blur(16px);
+        border: 1px solid rgba(0, 240, 255, 0.25);
+        border-radius: 30px;
+        padding: 8px 22px;
+        font-size: 12px;
+        color: #c7d2fe;
+        text-align: center;
+        pointer-events: all;
+      }
+
+      #btn-enter-vr {
+        pointer-events: all;
+        background: linear-gradient(135deg, #00f0ff, #6c63ff, #ff007f);
+        background-size: 200% 200%;
+        animation: gradientShift 4s ease infinite;
+        border: none;
+        border-radius: 50px;
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 700;
+        padding: 16px 42px;
+        cursor: pointer;
+        letter-spacing: 0.8px;
+        box-shadow: 0 10px 35px rgba(0, 240, 255, 0.35), 0 0 20px rgba(108, 99, 255, 0.4);
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      @keyframes gradientShift {
+        0% { background-position: 0% 50%; }
+        50% { background-position: 100% 50%; }
+        100% { background-position: 0% 50%; }
+      }
+      #btn-enter-vr:hover {
+        transform: translateY(-3px) scale(1.02);
+        box-shadow: 0 15px 45px rgba(0, 240, 255, 0.55), 0 0 30px rgba(108, 99, 255, 0.6);
+      }
+      #btn-enter-vr:active {
+        transform: translateY(1px) scale(0.98);
+      }
+      #btn-enter-vr:disabled {
+        background: rgba(40, 40, 60, 0.6);
+        box-shadow: none;
+        color: rgba(255, 255, 255, 0.4);
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      /* ── Panel de URLs de acceso ───────────────────────────── */
+      #access-info {
+        position: fixed;
+        bottom: 25px;
+        left: 20px;
+        padding: 12px 18px;
+        font-size: 11px;
+        line-height: 1.6;
+        z-index: 100;
+      }
+      #access-info strong {
+        color: #00f0ff;
+        display: block;
+        margin-bottom: 4px;
+        font-size: 10px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+      }
+      .url-link {
+        color: #60a5fa;
+        text-decoration: none;
+        font-family: monospace;
+        font-size: 11px;
+        word-break: break-all;
+      }
+
+      /* ── Botón Toggle Debug ────────────────────────────────── */
+      #btn-toggle-debug {
+        position: fixed;
+        bottom: 25px;
+        right: 20px;
+        padding: 8px 14px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.6);
+        cursor: pointer;
+        background: rgba(10, 10, 25, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        z-index: 100;
+        transition: color 0.2s, border-color 0.2s;
+      }
+      #btn-toggle-debug:hover {
+        color: #fff;
+        border-color: #00f0ff;
+      }
+
+      /* ── Debug Panel Controllers (Oculto por defecto) ──────── */
+      #ctrl-debug {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        background: rgba(6, 6, 20, 0.88);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(108, 99, 255, 0.35);
+        border-radius: 12px;
+        padding: 14px 18px;
+        font-size: 11px;
+        font-family: monospace;
+        min-width: 200px;
+        z-index: 100;
+        line-height: 1.7;
+        display: none; /* toggleable */
+      }
+      #ctrl-debug h4 {
+        color: #00f0ff;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        margin-bottom: 8px;
+        border-bottom: 1px solid rgba(108, 99, 255, 0.2);
+        padding-bottom: 4px;
+      }
+      .dbg-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        color: rgba(255, 255, 255, 0.6);
+      }
+      .dbg-val {
+        color: #a5b4fc;
+        font-weight: 600;
+      }
+      #dbg-ctrl-count {
+        margin-top: 8px;
+        padding-top: 6px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+        text-align: center;
+        font-size: 10px;
+      }
+    </style>
+  </head>
+  <body>
+
+    <!-- Barra Superior -->
+    <div id="top-bar">
+      <div id="brand-tag" class="glass-card">
+        <span class="indicator"></span>
+        <span>EXPERIENCIA 360° • QUEST 3</span>
+      </div>
+      <div id="mode-hint" class="glass-card">
+        🖱️ <strong>Arrastra</strong> para rotar 360° | <strong>WASD</strong> para caminar
+      </div>
+    </div>
+
+    <!-- URLs de Acceso -->
+    <div id="access-info" class="glass-card">
+      <strong>🌐 Acceso directo Quest 3</strong>
+      Túnel seguro activo:<br/>
+      <span class="url-link">https://immunology-globe-potato-tremendous.trycloudflare.com</span>
+    </div>
+
+    <!-- Botón Toggle Debug -->
+    <button id="btn-toggle-debug">🎮 Telemetría</button>
+
+    <!-- Debug Panel Touch Controllers -->
+    <div id="ctrl-debug">
+      <h4>🕹️ Touch Controllers</h4>
+      <div class="dbg-row"><span>Stick Mover</span><span class="dbg-val" id="dbg-move-x">0.00, 0.00</span></div>
+      <div class="dbg-row"><span>Stick Girar</span><span class="dbg-val" id="dbg-turn-x">0.00</span></div>
+      <div class="dbg-row"><span>Gatillo Izq</span><span class="dbg-val" id="dbg-trigger-l">0%</span></div>
+      <div class="dbg-row"><span>Gatillo Der</span><span class="dbg-val" id="dbg-trigger-r">0%</span></div>
+      <div class="dbg-row"><span>Botones</span><span class="dbg-val" id="dbg-btns">—</span></div>
+      <div id="dbg-ctrl-count" style="color: rgba(255,255,255,0.4);">Buscando mandos...</div>
+    </div>
+
+    <!-- VR Launch UI -->
+    <div id="vr-ui">
+      <div id="status-bar">
+        ⚡ Modo 360° activo — Pulsa el botón para entrar a VR inmersivo
+      </div>
+      <button id="btn-enter-vr">
+        <span>🥽</span>
+        <span>ENTRAR A VR INMERSIVO (QUEST 3)</span>
+      </button>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+    <script>
+      // Toggle de panel de debug
+      const dbgBtn = document.getElementById('btn-toggle-debug');
+      const dbgPanel = document.getElementById('ctrl-debug');
+      if (dbgBtn && dbgPanel) {
+        dbgBtn.addEventListener('click', () => {
+          const isHidden = dbgPanel.style.display === 'none' || !dbgPanel.style.display;
+          dbgPanel.style.display = isHidden ? 'block' : 'none';
+          dbgBtn.style.color = isHidden ? '#00f0ff' : 'rgba(255,255,255,0.6)';
+        });
+      }
+    </script>
+  </body>
+</html>

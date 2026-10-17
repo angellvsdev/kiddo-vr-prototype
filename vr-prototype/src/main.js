@@ -152,10 +152,16 @@ async function boot() {
     // Reanclar fade overlay a la nueva cámara
     fadeOverlay.attachToCamera(sceneManager.camera);
 
-    // Si el nivel llega a su meta final, volver automáticamente al Lobby
-    sceneManager.onLevelComplete = (completedId) => {
-      console.log(`[GameFlow] Meta alcanzada en ${completedId}. Regresando al Lobby...`);
-      switchLevel('lobby');
+    // Si el nivel llega a su meta final, avanzar al siguiente nivel o volver al Lobby
+    sceneManager.onLevelComplete = (completedId, nextLevelId) => {
+      console.log(`[GameFlow] Meta alcanzada en ${completedId}. Siguiente nivel: ${nextLevelId || 'lobby'}...`);
+      if (nextLevelId === 'downhill') {
+        setMode('downhill');
+      } else if (nextLevelId && LEVELS[nextLevelId]) {
+        switchLevel(nextLevelId);
+      } else {
+        switchLevel('lobby');
+      }
     };
 
     // Si es el Lobby, conectar la selección de niveles interactiva
@@ -191,9 +197,15 @@ async function boot() {
   }
 
   // Vincular eventos iniciales del nivel de arranque
-  sceneManager.onLevelComplete = (completedId) => {
-    console.log(`[GameFlow] Meta alcanzada en ${completedId}. Regresando al Lobby...`);
-    switchLevel('lobby');
+  sceneManager.onLevelComplete = (completedId, nextLevelId) => {
+    console.log(`[GameFlow] Meta alcanzada en ${completedId}. Siguiente nivel: ${nextLevelId || 'lobby'}...`);
+    if (nextLevelId === 'downhill') {
+      setMode('downhill');
+    } else if (nextLevelId && LEVELS[nextLevelId]) {
+      switchLevel(nextLevelId);
+    } else {
+      switchLevel('lobby');
+    }
   };
 
   if (levelId === 'lobby') {

@@ -20,10 +20,17 @@ export class DownhillHUD {
     this.ctx = this.canvas.getContext('2d');
 
     this.texture = new THREE.CanvasTexture(this.canvas);
-    const mat = new THREE.MeshBasicMaterial({ map: this.texture, transparent: true, depthWrite: false });
-    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.4, 0.7), mat);
-    this.mesh.position.set(0, 1.2, -1.5);
-    this.mesh.rotation.x = -0.15; // ligera inclinación hacia el usuario
+    const mat = new THREE.MeshBasicMaterial({
+      map: this.texture,
+      transparent: true,
+      depthWrite: false,
+    });
+    // Dimensiones legibles del panel lateral de estadísticas
+    this.mesh = new THREE.Mesh(new THREE.PlaneGeometry(0.70, 0.35), mat);
+    // Posicionado lateralmente a la derecha (x=1.02), despejando el camino frontal al 100%
+    this.mesh.position.set(1.02, 1.25, -1.40);
+    this.mesh.rotation.set(-0.08, -0.54, 0);
+    this.mesh.renderOrder = 999;
 
     this._sinceRefresh = Infinity;
     this._last = null;

@@ -140,7 +140,8 @@ Kiddo VR/
         │   ├── Raft.js                  # Balsa: troncos 3D, palas giratorias, física y dashboard
         │   ├── Buoy.js                  # Boya marina: torreta, baliza luminosa y pirotecnia
         │   ├── PearlManager.js          # Coleccionables: 12 perlas, colisiones y efectos
-        │   ├── Horse.js                 # [Nivel Llano] Caballo procedural movido por pedales
+        │   ├── Horse.js                 # [Nivel Llano] Caballo procedural movido por pedales (~7.700 triángulos, 24 mallas)
+        │   ├── horseGeometry.js         # [Nivel Llano] Generadores de formas suaves (tubos cónicos y elipsoides con color por vértice)
         │   ├── LlanoOrbManager.js       # [Nivel Llano] Orbes del Atardecer: coleccionables y puntos
         │   ├── HatoGate.js              # [Nivel Llano] Portón del hato (meta) y cocuyos
         │   └── RiderDashboard.js        # [Nivel Llano] Tablero holográfico del jinete
@@ -222,6 +223,7 @@ Estas cifras salen del código y las usa la página de presentación (`re-mover-
 - **Flujo:** a pie junto al caballo → cinemática de montar (`LlanoCinematicManager`, 3.6 s, smoothstep libre de cinetosis) → avance por pedaleo → portón del hato (`GOAL_REACHED` por el `DeviceActionBridge`).
 - **Avance = pedaleo del niño (fisioterapia):** el caballo avanza según la cadencia real: velocidad = RPM/60 × 2.6 m por vuelta de pedal (tope 3.4 m/s ≈ 78 RPM). Sin pedalear se detiene en ~3 s y mantener un pedal presionado sin girar no lo mueve. Verificado de 10 a 80 RPM (≈2.6 m/vuelta). El tiempo de inactividad de `PedalController` se adapta a la cadencia, así que el pedaleo lento de rehabilitación (~10-20 RPM) se lee bien.
 - **Orbes del Atardecer y puntos:** 12 orbes ámbar a lo largo del sendero (100 puntos c/u, mostrados en el tablero). Cada uno dispara `PEARL_COLLECTED` hacia el dispositivo externo, igual que las perlas del nivel costero, y `GOAL_REACHED` incluye los orbes recogidos.
+- **Caballo:** modelo procedural de formas suaves y sin texturas (pelaje bayo con mancha blanca y calcetines, crin y cola, orejas que se mueven, patas de dos segmentos que flexionan al caminar, silla con manta, estribos, brida y riendas). Cuesta ~7.700 triángulos y 24 mallas, pensado para mantener los FPS del Quest 3.
 - **Comodidad VR:** el caballo sigue el sendero por sí solo, así que el jinete puede mirar libremente en 360° sin que el rumbo cambie. El stick (VR) o `A`/`D` (pantalla) desvían manualmente y pausan el guiado 2.5 s.
 - **Controles:** pedales (Gamepad API) > gatillo/stick de los mandos Quest > `W`/`Espacio`. En pantalla, arrastra el ratón/dedo para mirar en 360°.
 - **Audio:** viento y grillos procedurales (`SpatialAudioManager({ ambience: 'llano' })`) y pisadas de casco al ritmo de la marcha.

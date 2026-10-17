@@ -29,7 +29,7 @@ export class RiderDashboard {
       new THREE.MeshBasicMaterial({ map: this.texture, transparent: true, side: THREE.DoubleSide, fog: false })
     );
     // Flota delante del jinete, inclinado hacia sus ojos; el caballo mira a -Z y el jinete está en +Z
-    this.mesh.position.set(0, 1.75, -0.45);
+    this.mesh.position.set(0, 1.86, -0.45);
     this.mesh.rotation.set(-0.9, 0, 0);
     parent.add(this.mesh);
 
